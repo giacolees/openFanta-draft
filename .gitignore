@@ -1,0 +1,25 @@
+# OS and local agent files
+.DS_Store
+.agent/
+.commandcode/
+
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv/
+
+# Local/generated auction and source datasets. Keep only the canonical runtime
+# listone and its metadata in version control.
+data/*
+!data/listone.csv
+!data/listone_meta.json
+
+# Cache di strumenti
+.ruff_cache/
+.pytest_cache/

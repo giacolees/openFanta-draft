@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "teams": [
+    {
+      "team": "IO",
+      "budget": 132,
+      "slots_a": 3,
+      "slots_other": {}
+    },
+    {
+      "team": "T1",
+      "budget": 150,
+      "slots_a": 2,
+      "slots_other": {}
+    },
+    {
+      "team": "T2",
+      "budget": 120,
+      "slots_a": 2,
+      "slots_other": {}
+    }
+  ],
+  "players": [
+    {
+      "pid": "63ba8d9055a9a9c9",
+      "nome": "MALEN",
+      "base": 200,
+      "pma": 210.0,
+      "unc_pfc": 12.0,
+      "suggested0": 210.0,
+      "scarc0": 1.2,
+      "unsold0": 0,
+      "value": 260.0,
+      "rank": 1
+    },
+    {
+      "pid": "e42c95da22e9160d",
+      "nome": "DIAO",
+      "base": 130,
+      "pma": 128.0,
+      "unc_pfc": 9.0,
+      "suggested0": 140.0,
+      "scarc0": 1.1,
+      "unsold0": 0,
+      "value": 150.0,
+      "rank": 2
+    },
+    {
+      "pid": "ea814a331b9932fc",
+      "nome": "LUCCA",
+      "base": 90,
+      "pma": 95.0,
+      "unc_pfc": 7.0,
+      "suggested0": 95.0,
+      "scarc0": 1.05,
+      "unsold0": 1,
+      "value": 100.0,
+      "rank": 3
+    },
+    {
+      "pid": "6550e31f5d4fd8c5",
+      "nome": "RETEGUI",
+      "base": 60,
+      "pma": 58.0,
+      "unc_pfc": 5.0,
+      "suggested0": 62.0,
+      "scarc0": 1.0,
+      "unsold0": 0,
+      "value": null,
+      "rank": null
+    },
+    {
+      "pid": "a86688896e6196cc",
+      "nome": "DOVBYIK",
+      "base": 30,
+      "pma": 31.0,
+      "unc_pfc": 4.0,
+      "suggested0": 34.0,
+      "scarc0": 1.0,
+      "unsold0": 0,
+      "value": 40.0,
+      "rank": 4
+    },
+    {
+      "pid": "994ba93ea3131d07",
+      "nome": "BELOTTI",
+      "base": 15,
+      "pma": 14.0,
+      "unc_pfc": 3.0,
+      "suggested0": 16.0,
+      "scarc0": 1.0,
+      "unsold0": 2,
+      "value": null,
+      "rank": null
+    },
+    {
+      "pid": "4e850509bcd939e7",
+      "nome": "PINAMONTI",
+      "base": 8,
+      "pma": 8.0,
+      "unc_pfc": 2.0,
+      "suggested0": 9.0,
+      "scarc0": 0.95,
+      "unsold0": 0,
+      "value": 10.0,
+      "rank": 5
+    },
+    {
+      "pid": "2d6e899a37561211",
+      "nome": "MANSILLA",
+      "base": 2,
+      "pma": 2.0,
+      "unc_pfc": 1.0,
+      "suggested0": 2.0,
+      "scarc0": 0.9,
+      "unsold0": 0,
+      "value": null,
+      "rank": null
+    }
+  ],
+  "pool": [
+    "63ba8d9055a9a9c9",
+    "e42c95da22e9160d",
+    "ea814a331b9932fc",
+    "6550e31f5d4fd8c5",
+    "a86688896e6196cc",
+    "994ba93ea3131d07",
+    "4e850509bcd939e7",
+    "2d6e899a37561211"
+  ],
+  "money_league": 402
+}

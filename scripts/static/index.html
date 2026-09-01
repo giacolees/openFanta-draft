@@ -1,0 +1,2193 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Asta Live Fanta 2026/27 — Listone Fantaculo</title>
+    <style>
+      :root {
+        --bg: #0f1218;
+        --card: #171c26;
+        --border: #2a3242;
+        --text: #e8ecf3;
+        --muted: #8b96a8;
+        --accent: #4da3ff;
+        --orange: #ffb020;
+        --green: #3fbf7f;
+        --red: #ff6b6b;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          14px/1.45 -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+      }
+      html,
+      body {
+        max-width: 100%;
+        overflow-x: clip;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border);
+        position: sticky;
+        top: 0;
+        background: var(--bg);
+        z-index: 5;
+        flex-wrap: wrap;
+      }
+      header h1 {
+        font-size: 16px;
+        margin: 0;
+        font-weight: 650;
+      }
+      .spacer {
+        flex: 1;
+      }
+      .badge,
+      .chip {
+        padding: 3px 9px;
+        border-radius: 16px;
+        font-size: 11px;
+        border: 1px solid var(--border);
+      }
+      .badge.info {
+        color: var(--accent);
+        border-color: #2b4a6b;
+      }
+      .badge.stable {
+        color: var(--orange);
+        border-color: #55401c;
+      }
+      .badge.rise {
+        color: var(--red);
+        border-color: #5b2e33;
+      }
+      .badge.fall {
+        color: var(--green);
+        border-color: #245538;
+      }
+      button {
+        background: #1f2633;
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 7px 13px;
+        font-size: 13px;
+        cursor: pointer;
+        min-height: 36px;
+      }
+      button:hover {
+        border-color: var(--accent);
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #06121f;
+        font-weight: 650;
+      }
+      button.warn {
+        border-color: #7a3940;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin-bottom: 16px;
+      }
+      .card h2 {
+        font-size: 13px;
+        margin: 0 0 10px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .card h3 {
+        font-size: 13px;
+        margin: 14px 0 7px;
+        color: var(--accent);
+      }
+      /* min-width: 0 su figli grid/flex: impedisce che il min-content di
+         input, tabelle e coppie key/value esploda oltre il viewport */
+      .value-section,
+      .kv,
+      .kv b,
+      .kv span,
+      .table-wrap,
+      .player-head,
+      .player-head > div,
+      .actions button,
+      .sim-controls label,
+      .sim-filter label,
+      .config-grid label,
+      #budgets {
+        min-width: 0;
+      }
+      main {
+        display: grid;
+        grid-template-columns: minmax(0, 460px) minmax(0, 1fr);
+        gap: 16px;
+        padding: 16px;
+        max-width: 1400px;
+        margin: auto;
+      }
+      @media (max-width: 900px) {
+        main {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      input,
+      select,
+      textarea {
+        width: 100%;
+        background: #0c0f15;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--text);
+        padding: 8px 10px;
+        font-size: 14px;
+      }
+      input:focus,
+      select:focus,
+      textarea:focus {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      textarea {
+        font-family: inherit;
+        min-height: 90px;
+        resize: vertical;
+      }
+      label {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        align-items: end;
+        margin: 10px 0;
+        flex-wrap: wrap;
+      }
+      .row label {
+        flex: 1 1 130px;
+        min-width: 0;
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+        flex-wrap: wrap;
+      }
+      .actions button {
+        flex: 1 1 130px;
+        min-width: 0;
+        min-height: 42px;
+      }
+      .hidden {
+        display: none !important;
+      }
+      .mut {
+        color: var(--muted);
+      }
+      .hint {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 8px;
+      }
+      kbd {
+        background: #202836;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 0 5px;
+        font-size: 11px;
+      }
+      #results,
+      #recent {
+        list-style: none;
+        margin: 6px 0 0;
+        padding: 0;
+      }
+      #results {
+        max-height: 260px;
+        overflow: auto;
+      }
+      #results li {
+        padding: 9px 10px;
+        min-height: 38px;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      #results li:hover,
+      #results li.active {
+        background: #202836;
+      }
+      #results li.active {
+        outline: 1px solid var(--accent);
+      }
+      #results li.empty {
+        cursor: default;
+        color: var(--muted);
+        justify-content: center;
+      }
+      .rb {
+        font-size: 10px;
+        font-weight: 700;
+        padding: 1px 6px;
+        border-radius: 6px;
+        color: #0b0e13;
+      }
+      .rb.P {
+        background: var(--orange);
+      }
+      .rb.D {
+        background: var(--green);
+      }
+      .rb.C {
+        background: var(--accent);
+      }
+      .rb.A {
+        background: var(--red);
+      }
+      .price {
+        margin-left: auto;
+        font-weight: 650;
+      }
+      .player-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        align-items: start;
+        min-width: 0;
+      }
+      .player-head > div {
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      .player-head h3 {
+        font-size: 17px;
+        margin: 0 0 2px;
+        color: var(--text);
+      }
+      .section-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .value-section {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 9px;
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      .value-section h4 {
+        font-size: 11px;
+        margin: 0 0 7px;
+        color: var(--accent);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .kv {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 4px 8px;
+        font-size: 12px;
+      }
+      .kv span,
+      .kv b {
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      .kv b {
+        text-align: right;
+      }
+      .mini {
+        font-size: 11px;
+        color: var(--muted);
+        margin: 7px 0 0;
+      }
+      .warning {
+        color: var(--orange);
+        background: #241c0e;
+        border: 1px solid #55401c;
+        border-radius: 7px;
+        padding: 7px;
+        font-size: 12px;
+        margin-top: 8px;
+      }
+      .danger {
+        color: var(--red);
+      }
+      .table-wrap {
+        overflow-x: auto;
+        margin: 0 -4px 4px;
+        -webkit-overflow-scrolling: touch;
+        min-width: 0;
+        max-width: 100%;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+        min-width: 530px;
+      }
+      th,
+      td {
+        padding: 6px 5px;
+        text-align: right;
+        border-bottom: 1px solid #212836;
+        white-space: nowrap;
+      }
+      th:first-child,
+      td:first-child {
+        text-align: left;
+      }
+      th {
+        color: var(--muted);
+        font-weight: 500;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+      #budgets {
+        margin-top: 10px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+        margin-top: 8px;
+      }
+      .chip small {
+        color: var(--muted);
+      }
+      .chip.persist-on {
+        color: var(--green);
+        border-color: #245538;
+      }
+      .chip.persist-off {
+        color: var(--muted);
+      }
+      .up {
+        color: var(--red);
+      }
+      .down {
+        color: var(--green);
+      }
+      .flat {
+        color: var(--muted);
+      }
+      svg {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+      .sim-controls {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+        align-items: end;
+      }
+      .sim-controls .actions {
+        margin: 0;
+        grid-column: 1/-1;
+      }
+      .sim-status {
+        font-size: 12px;
+        color: var(--muted);
+        min-height: 20px;
+        margin-top: 8px;
+      }
+      .sim-filter {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(
+            140px,
+            200px
+          );
+        gap: 8px;
+        margin: 10px 0;
+      }
+      .subpanel {
+        border-top: 1px solid var(--border);
+        margin-top: 12px;
+        padding-top: 8px;
+      }
+      .subpanel summary {
+        list-style: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 0;
+        color: var(--accent);
+        font-weight: 600;
+      }
+      .subpanel summary::-webkit-details-marker {
+        display: none;
+      }
+      .subpanel summary::before {
+        content: "▸";
+        display: inline-block;
+        transition: transform 0.15s ease;
+        font-size: 10px;
+      }
+      .subpanel[open] summary::before {
+        transform: rotate(90deg);
+      }
+      .subpanel h3 {
+        display: inline;
+        font-size: 12px;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
+      .pager {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin: 6px 0 2px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .pager button {
+        min-height: 30px;
+        padding: 4px 12px;
+      }
+      .pager-info {
+        color: var(--muted);
+      }
+      caption {
+        text-align: left;
+        color: var(--muted);
+        font-size: 11px;
+        padding: 2px 4px 6px;
+      }
+      thead th {
+        position: sticky;
+        top: 0;
+        background: var(--card);
+        z-index: 1;
+      }
+      .summary-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 6px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .summary-chips .chip {
+        font-size: 11px;
+      }
+      .sim-summary-note {
+        font-size: 11px;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+      .sr-only {
+        position: absolute !important;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+      .feasibility {
+        font-size: 12px;
+        margin: 8px 0;
+      }
+      .feasibility ul {
+        margin: 3px 0 5px;
+        padding-left: 20px;
+      }
+      .persist {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+        font-size: 12px;
+      }
+      .persist strong {
+        color: var(--green);
+      }
+      dialog {
+        background: var(--card);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 18px;
+        width: min(650px, 94vw);
+        max-height: 90vh;
+        overflow: auto;
+      }
+      dialog::backdrop {
+        background: rgba(5, 8, 12, 0.72);
+      }
+      dialog h2 {
+        margin: 0 0 12px;
+        font-size: 15px;
+      }
+      .config-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 8px;
+      }
+      .config-grid label {
+        min-width: 0;
+      }
+      .dlg-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 16px;
+      }
+      .dlg-actions button {
+        flex: 1;
+      }
+      .note {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 8px;
+      }
+      .file-label {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #1f2633;
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 7px 13px;
+        min-height: 36px;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      #toast {
+        position: fixed;
+        bottom: 18px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #2a1518;
+        color: var(--red);
+        border: 1px solid #5b2e33;
+        padding: 9px 16px;
+        border-radius: 10px;
+        display: none;
+        font-size: 13px;
+        z-index: 10;
+        max-width: min(92vw, 680px);
+      }
+      @media (max-width: 700px) {
+        .section-grid {
+          grid-template-columns: 1fr;
+        }
+        .sim-controls {
+          grid-template-columns: 1fr;
+        }
+        .sim-filter {
+          grid-template-columns: 1fr;
+        }
+        main {
+          padding: 12px;
+        }
+      }
+      @media (max-width: 400px) {
+        header .badge {
+          display: none;
+        }
+        header button {
+          padding: 6px 8px;
+          font-size: 11px;
+        }
+        main {
+          padding: 8px;
+        }
+        .card {
+          padding: 10px;
+        }
+        .actions {
+          gap: 6px;
+        }
+        .actions button {
+          flex-basis: 115px;
+          padding: 8px 5px;
+        }
+        .config-grid {
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Asta Live 2026/27</h1>
+      <span class="badge info" id="infl-badge">Inflazione PFC ×—</span
+      ><span class="badge info" id="infl-pma-badge">Inflazione PMA ×—</span
+      ><span class="badge stable" id="pfc-badge">vs PFC: —</span
+      ><span class="badge stable" id="pma-badge">vs PMA: —</span
+      ><span class="spacer"></span
+      ><button id="config-btn" title="Squadre, crediti, ruoli e nomi">
+        ⚙ Config</button
+      ><button id="undo-btn" title="Annulla ultima operazione" disabled>
+        ↶ Annulla
+      </button>
+    </header>
+    <dialog id="config-dialog" aria-labelledby="config-title">
+      <h2 id="config-title">Configurazione lega</h2>
+      <div class="row">
+        <label
+          >Numero di squadre<input
+            type="number"
+            id="cfg-teams"
+            min="2"
+            max="20"
+            step="1" /></label
+        ><label
+          >Crediti per squadra<input
+            type="number"
+            id="cfg-budget"
+            min="10"
+            max="10000"
+            step="1" /></label
+        ><label
+          >Soglia copertura titolarità<input
+            type="number"
+            id="cfg-tit"
+            min="0"
+            max="100"
+            step="1"
+        /></label>
+      </div>
+      <label
+        >Nomi delle squadre (uno per riga, in ordine)<textarea
+          id="cfg-names"
+          spellcheck="false"
+        ></textarea></label
+      ><label>La mia squadra<select id="cfg-io"></select></label>
+      <h3>Slot rosa</h3>
+      <div class="config-grid">
+        <label>P<input type="number" id="slot-P" min="1" max="30" /></label
+        ><label>D<input type="number" id="slot-D" min="1" max="30" /></label
+        ><label>C<input type="number" id="slot-C" min="1" max="30" /></label
+        ><label>A<input type="number" id="slot-A" min="1" max="30" /></label>
+      </div>
+      <h3>Formazione titolare</h3>
+      <div class="config-grid">
+        <label>P<input type="number" id="form-P" min="1" max="30" /></label
+        ><label>D<input type="number" id="form-D" min="1" max="30" /></label
+        ><label>C<input type="number" id="form-C" min="1" max="30" /></label
+        ><label>A<input type="number" id="form-A" min="1" max="30" /></label>
+      </div>
+      <div id="cfg-feasibility" class="feasibility" aria-live="polite"></div>
+      <div class="note">
+        Applicare azzera vendite e tendenze. La conferma è richiesta prima del
+        reset.
+      </div>
+      <div class="dlg-actions">
+        <button id="cfg-cancel">Annulla</button
+        ><button class="primary" id="cfg-apply">Applica e azzera asta</button>
+      </div>
+    </dialog>
+    <dialog id="restore-dialog" aria-labelledby="restore-title">
+      <h2 id="restore-title">Ripristina backup</h2>
+      <p>
+        Il restore <strong>sostituisce</strong> o aggiunge eventi al log secondo
+        la modalità scelta. Verifica il file prima di continuare.
+      </p>
+      <label
+        >Modalità<select id="restore-mode">
+          <option value="replace">replace — sostituisci log</option>
+          <option value="append">append — aggiungi eventi</option>
+        </select></label
+      >
+      <div class="dlg-actions">
+        <button id="restore-cancel">Annulla</button
+        ><button class="warn" id="restore-confirm">Conferma restore</button>
+      </div>
+    </dialog>
+    <main>
+      <section>
+        <div class="card">
+          <h2>Inserimento rapido</h2>
+          <input
+            type="text"
+            id="search"
+            placeholder="Cerca giocatore…"
+            autocomplete="off"
+            autofocus
+            role="combobox"
+            aria-expanded="false"
+            aria-controls="results"
+            aria-autocomplete="list"
+            aria-activedescendant=""
+            aria-label="Cerca giocatore"
+          />
+          <ul id="results" role="listbox" aria-label="Risultati ricerca"></ul>
+          <div id="player-card" class="hidden">
+            <div class="player-head">
+              <div>
+                <h3 id="pc-name"></h3>
+                <div id="pc-meta" class="mut"></div>
+              </div>
+              <span id="pc-calib-badge" class="badge stable hidden"
+                >Advisory</span
+              >
+            </div>
+            <div class="section-grid">
+              <section
+                class="value-section"
+                id="pc-market-section"
+                data-block="market"
+                aria-labelledby="market-title"
+              >
+                <h4 id="market-title">Mercato previsto</h4>
+                <div class="kv" id="pc-market"></div>
+              </section>
+              <section
+                class="value-section"
+                id="pc-fantasy-section"
+                data-block="fantasy"
+                aria-labelledby="fantasy-title"
+              >
+                <h4 id="fantasy-title">Valore fantasy</h4>
+                <div class="kv" id="pc-fantasy"></div>
+              </section>
+              <section
+                class="value-section"
+                id="pc-team-section"
+                data-block="my-team"
+                aria-labelledby="team-value-title"
+              >
+                <h4 id="team-value-title">Valore per la mia rosa</h4>
+                <div class="kv" id="pc-team-value"></div>
+              </section>
+            </div>
+            <section
+              class="value-section"
+              id="pc-maxbid"
+              data-block="maxbid"
+              aria-labelledby="caps-title"
+            >
+              <h4 id="caps-title">Max sostenibile — 4 cap</h4>
+              <div class="kv" id="pc-caps"></div>
+              <p class="mini" id="pc-alternative"></p>
+            </section>
+            <section class="value-section" aria-labelledby="scarcity-title">
+              <h4 id="scarcity-title">Scarsità per questo acquisto</h4>
+              <div class="kv" id="pc-scarcity"></div>
+              <p class="mini" id="pc-competitors"></p>
+            </section>
+            <section
+              class="value-section"
+              id="calibration-panel"
+              aria-labelledby="calibration-title"
+            >
+              <h4 id="calibration-title">
+                <span id="calibration-badge">Calibrazione</span>
+              </h4>
+              <div class="kv" id="pc-calibration"></div>
+            </section>
+            <div id="price-warning" class="warning hidden" role="alert"></div>
+            <div class="row">
+              <label
+                >Prezzo<input
+                  type="number"
+                  id="price"
+                  min="1"
+                  step="1"
+                  aria-label="Prezzo di vendita" /></label
+              ><label
+                >Squadra<select
+                  id="team"
+                  aria-label="Squadra acquirente"
+                ></select
+              ></label>
+            </div>
+            <div class="actions">
+              <button class="primary" id="sold-btn" disabled>Venduto ⏎</button
+              ><button class="warn" id="unsold-btn" disabled>Invenduto</button>
+            </div>
+          </div>
+          <div class="hint">
+            <kbd>↑</kbd><kbd>↓</kbd> risultati · <kbd>Invio</kbd> seleziona ·
+            <kbd>Invio</kbd> sul prezzo registra
+          </div>
+        </div>
+        <div class="card">
+          <h2>Ultime operazioni</h2>
+          <ul id="recent"></ul>
+        </div>
+        <div class="card" id="persistence-bar">
+          <h2>Persistenza</h2>
+          <div class="persist" id="persistence-status" aria-live="polite">
+            Persistenza non disponibile
+          </div>
+          <div class="actions">
+            <button id="backup-btn">⬇ Scarica backup JSON</button
+            ><button id="restore-btn" class="file-label" type="button">
+              Ripristina JSON</button
+            ><input
+              type="file"
+              id="restore-file"
+              class="sr-only"
+              accept="application/json,.json"
+              tabindex="-1"
+              aria-label="Scegli un file di backup JSON da ripristinare"
+            /><button id="correct-btn" class="warn">
+              Rettifica ultima vendita
+            </button>
+          </div>
+        </div>
+      </section>
+      <section>
+        <div class="card">
+          <h2>Stato lega</h2>
+          <div class="table-wrap">
+            <table id="roles">
+              <thead>
+                <tr>
+                  <th>Ruolo</th>
+                  <th>Slot ap.</th>
+                  <th>Utilizz.</th>
+                  <th>Scarsità</th>
+                  <th>Qualità</th>
+                  <th>Top-20</th>
+                  <th>FIX med</th>
+                  <th>Speso</th>
+                  <th>% pool</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div id="budgets"></div>
+          <div id="config-result" class="feasibility" aria-live="polite">
+            <div id="config-minimum-roster-cost"></div>
+            <div id="config-feasibility-errors"></div>
+            <div id="config-feasibility-warnings"></div>
+          </div>
+          <div
+            class="row"
+            style="
+              margin-top: 12px;
+              border-top: 1px solid var(--border);
+              padding-top: 12px;
+            "
+          >
+            <label
+              >Export svincolati<select id="exp-role">
+                <option value="">Tutti i ruoli</option>
+                <option value="P">Portieri</option>
+                <option value="D">Difensori</option>
+                <option value="C">Centrocampisti</option>
+                <option value="A">Attaccanti</option>
+              </select></label
+            ><button id="exp-svincolati-btn">⬇ Svincolati (CSV)</button
+            ><button id="exp-rose-btn">⬇ Rose (CSV)</button>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Analisi di tendenza — vs PFC e vs PMA</h2>
+          <svg
+            id="chart"
+            viewBox="0 0 600 240"
+            role="img"
+            aria-label="Grafico tendenza prezzi"
+          ></svg>
+          <div id="verdict" style="margin-top: 8px"></div>
+          <div class="chips" id="role-chips"></div>
+        </div>
+        <div class="card" id="forward-card">
+          <h2>Simulatore Attaccanti</h2>
+          <div class="sim-controls">
+            <label
+              >Runs<input
+                id="sim-runs"
+                type="number"
+                value="10000"
+                min="1"
+                max="50000"
+                step="1" /></label
+            ><label
+              >Seed<input
+                id="sim-seed"
+                type="number"
+                value="42"
+                step="1" /></label
+            ><label>Prospettiva<select id="sim-team"></select></label
+            ><label
+              >Ordine<select id="sim-order">
+                <option value="shuffle">shuffle</option>
+                <option value="by_value">by_value</option>
+              </select></label
+            >
+            <div class="actions">
+              <button class="primary" id="simulate-btn">
+                Simula fase Attaccanti</button
+              ><button id="latest-btn">Carica ultimo report</button>
+            </div>
+          </div>
+          <div
+            id="sim-status"
+            class="sim-status"
+            aria-live="polite"
+            role="status"
+          ></div>
+          <div id="sim-output" class="hidden">
+            <div id="sim-summary" class="summary-chips"></div>
+            <div class="sim-summary-note">
+              I controlli qui sopra definiscono la
+              <strong>prossima</strong> run. Il riepilogo mostra i parametri del
+              report caricato/cache, che possono differire dai controlli
+              attuali.
+            </div>
+            <div class="sim-filter">
+              <label
+                >Filtro team<select id="sim-filter-team">
+                  <option value="">Tutti i team</option>
+                </select></label
+              ><label
+                >Filtro player<input
+                  id="sim-filter-player"
+                  type="search"
+                  placeholder="Nome o pid"
+                  aria-label="Filtra giocatore nel simulatore" /></label
+              ><label
+                >Ordina per<select id="sim-sort">
+                  <option value="sale_prob">Prob. vendita</option>
+                  <option value="avg_price">Prezzo medio</option>
+                  <option value="name">Nome</option>
+                </select></label
+              >
+            </div>
+            <details class="subpanel" id="panel-players" open>
+              <summary><h3>Risultati per giocatore</h3></summary>
+              <div class="table-wrap">
+                <table id="sim-players" aria-describedby="sim-players-cap">
+                  <caption id="sim-players-cap">
+                    Media, percentili P10/P50/P90 e probabilità di vendita
+                    simulata per ciascun giocatore. Prezzi in crediti (cr),
+                    probabilità in %.
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Giocatore</th>
+                      <th scope="col">Media (cr)</th>
+                      <th scope="col">P10 (cr)</th>
+                      <th scope="col">P50 (cr)</th>
+                      <th scope="col">P90 (cr)</th>
+                      <th scope="col">Sale prob. (%)</th>
+                      <th scope="col">Δ model (cr)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="sim-players-body"></tbody>
+                </table>
+              </div>
+              <div class="pager" id="sim-pager-players">
+                <button
+                  type="button"
+                  id="sim-page-prev-players"
+                  aria-label="Pagina precedente giocatori"
+                >
+                  ‹ Prec</button
+                ><span
+                  class="pager-info"
+                  id="sim-page-info-players"
+                  aria-live="polite"
+                ></span
+                ><button
+                  type="button"
+                  id="sim-page-next-players"
+                  aria-label="Pagina successiva giocatori"
+                >
+                  Succ ›
+                </button>
+              </div>
+            </details>
+            <details class="subpanel" id="panel-probs">
+              <summary><h3>Probabilità acquisto team/player</h3></summary>
+              <div class="table-wrap">
+                <table id="sim-probs" aria-describedby="sim-probs-cap">
+                  <caption id="sim-probs-cap">
+                    Probabilità (%) che ciascuna squadra acquisti un giocatore
+                    nella simulazione. Tabella estesa: usa filtri e paginazione.
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Team</th>
+                      <th scope="col">Player</th>
+                      <th scope="col">Prob. (%)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="sim-probs-body"></tbody>
+                </table>
+              </div>
+              <div class="pager" id="sim-pager-probs">
+                <button
+                  type="button"
+                  id="sim-page-prev-probs"
+                  aria-label="Pagina precedente probabilità"
+                >
+                  ‹ Prec</button
+                ><span
+                  class="pager-info"
+                  id="sim-page-info-probs"
+                  aria-live="polite"
+                ></span
+                ><button
+                  type="button"
+                  id="sim-page-next-probs"
+                  aria-label="Pagina successiva probabilità"
+                >
+                  Succ ›
+                </button>
+              </div>
+            </details>
+            <details class="subpanel" id="panel-combos" open>
+              <summary><h3>Top combinazioni per team</h3></summary>
+              <div class="table-wrap">
+                <table id="sim-combos" aria-describedby="sim-combos-cap">
+                  <caption id="sim-combos-cap">
+                    Composizioni rosa più probabili per team: probabilità (%),
+                    budget medio (cr), slot medi e probabilità di rosa
+                    incompleta (%).
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Team</th>
+                      <th scope="col">Combinazione</th>
+                      <th scope="col">Prob. (%)</th>
+                      <th scope="col">Budget medio (cr)</th>
+                      <th scope="col">Slot medi</th>
+                      <th scope="col">Incompleta (%)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="sim-combos-body"></tbody>
+                </table>
+              </div>
+              <div class="pager" id="sim-pager-combos">
+                <button
+                  type="button"
+                  id="sim-page-prev-combos"
+                  aria-label="Pagina precedente combinazioni"
+                >
+                  ‹ Prec</button
+                ><span
+                  class="pager-info"
+                  id="sim-page-info-combos"
+                  aria-live="polite"
+                ></span
+                ><button
+                  type="button"
+                  id="sim-page-next-combos"
+                  aria-label="Pagina successiva combinazioni"
+                >
+                  Succ ›
+                </button>
+              </div>
+            </details>
+            <details class="subpanel" id="panel-feas" open>
+              <summary><h3>Competition / completion / feasibility</h3></summary>
+              <div id="sim-feasibility" class="feasibility"></div>
+            </details>
+          </div>
+        </div>
+      </section>
+    </main>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script>
+      const $ = (id) => document.getElementById(id);
+      let selected = null,
+        ioName = "IO",
+        canUndo = false,
+        calibration = null,
+        latestBackup = null,
+        simEnvelope = null,
+        simPage = { players: 0, probs: 0, combos: 0 },
+        searchToken = 0,
+        pickToken = 0,
+        debounceH = null,
+        activeIdx = -1;
+      const roles = ["P", "D", "C", "A"],
+        slotLabel = {
+          1: "titolare sempre",
+          2: "90% titolare",
+          3: "da gestire",
+          4: "da evitare",
+        };
+      function el(tag, cls, text) {
+        const n = document.createElement(tag);
+        if (cls) n.className = cls;
+        if (text !== undefined && text !== null) n.textContent = String(text);
+        return n;
+      }
+      function svgEl(tag, attrs) {
+        const n = document.createElementNS("http://www.w3.org/2000/svg", tag);
+        for (const [k, v] of Object.entries(attrs || {}))
+          n.setAttribute(k, String(v));
+        return n;
+      }
+      function fmt(v, d = 2) {
+        return v === null || v === undefined || v === ""
+          ? "—"
+          : typeof v === "number"
+            ? v.toFixed(d)
+            : String(v);
+      }
+      function pct(v) {
+        return v === null || v === undefined ? "—" : (100 * v).toFixed(1) + "%";
+      }
+      function fmtWhen(iso) {
+        if (!iso) return "—";
+        const d = new Date(iso);
+        return Number.isNaN(d.getTime())
+          ? String(iso)
+          : d.toLocaleString("it-IT", {
+              dateStyle: "medium",
+              timeStyle: "short",
+            });
+      }
+      function toast(msg) {
+        const t = $("toast");
+        t.textContent = msg;
+        t.style.display = "block";
+        clearTimeout(t._h);
+        t._h = setTimeout(() => {
+          t.style.display = "none";
+        }, 3200);
+      }
+      async function api(path, opts) {
+        const r = await fetch(path, opts);
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          const e = new Error(data.error || "HTTP " + r.status);
+          e.status = r.status;
+          e.data = data;
+          throw e;
+        }
+        return data;
+      }
+      function setText(id, text) {
+        $(id).textContent = text == null ? "" : String(text);
+      }
+      function kv(container, rows) {
+        const n = $(container);
+        n.replaceChildren();
+        for (const [k, v] of rows) {
+          n.append(el("span", "mut", k));
+          n.append(el("b", null, v));
+        }
+      }
+      function updateControls() {
+        const has = !!selected && !selected.error;
+        $("sold-btn").disabled = !has;
+        $("unsold-btn").disabled = !has;
+        $("undo-btn").disabled = !canUndo;
+      }
+      function invalidateSelection() {
+        pickToken++;
+        selected = null;
+        $("player-card").classList.add("hidden");
+        $("price").value = "";
+        updateControls();
+      }
+      $("search").addEventListener("input", () => {
+        invalidateSelection();
+        $("results").replaceChildren();
+        syncCombobox(0);
+        clearTimeout(debounceH);
+        debounceH = setTimeout(() => search($("search").value), 200);
+      });
+      function setActive(i) {
+        const items = [...$("results").children];
+        items.forEach((n, j) => {
+          n.classList.toggle("active", j === i);
+          if (j === i) n.setAttribute("aria-selected", "true");
+          else n.removeAttribute("aria-selected");
+        });
+        activeIdx = i;
+        const box = $("search");
+        if (i >= 0 && items[i] && items[i].id)
+          box.setAttribute("aria-activedescendant", items[i].id);
+        else box.removeAttribute("aria-activedescendant");
+      }
+      function syncCombobox(count) {
+        $("search").setAttribute("aria-expanded", count > 0 ? "true" : "false");
+        if (count === 0) $("search").removeAttribute("aria-activedescendant");
+      }
+      function moveActive(d) {
+        const n = $("results").children.length;
+        if (n) {
+          setActive((activeIdx + d + n) % n);
+          $("results").children[activeIdx].scrollIntoView({ block: "nearest" });
+        }
+      }
+      $("search").addEventListener("keydown", (e) => {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          moveActive(e.key === "ArrowDown" ? 1 : -1);
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          const li =
+            $("results").querySelector("li.active") ||
+            $("results").querySelector("li");
+          if (li) pick(li.dataset.key);
+        } else if (e.key === "Escape") {
+          $("search").value = "";
+          invalidateSelection();
+          $("results").replaceChildren();
+          syncCombobox(0);
+        }
+      });
+      async function search(q) {
+        const token = ++searchToken;
+        try {
+          const team = $("team").value || ioName;
+          const data = await api(
+            `/api/players?q=${encodeURIComponent(q)}&team=${encodeURIComponent(team)}`,
+          );
+          if (token !== searchToken || $("search").value !== q) return;
+          const ul = $("results");
+          ul.replaceChildren();
+          activeIdx = -1;
+          if (!data.results?.length) {
+            if (q.trim()) {
+              const li = el(
+                "li",
+                "empty",
+                `Nessun risultato per “${q.trim()}”`,
+              );
+              li.setAttribute("role", "option");
+              li.setAttribute("aria-disabled", "true");
+              li.id = "result-empty";
+              ul.append(li);
+            }
+            syncCombobox(ul.children.length);
+            return;
+          }
+          let idx = 0;
+          for (const p of data.results) {
+            const li = el("li");
+            li.setAttribute("role", "option");
+            li.id = "result-" + idx++;
+            li.dataset.key = p.key;
+            li.append(
+              el("span", "rb " + p.ruolo, p.ruolo),
+              el("span", null, p.nome),
+              el("span", "mut", p.squadra || ""),
+              el("span", "mut", "slot " + p.slot),
+            );
+            if (p.unsold)
+              li.append(el("span", "mut", `(invenduto ×${p.unsold})`));
+            li.append(el("span", "price", `${p.suggested ?? p.base} cr`));
+            li.addEventListener("click", () => pick(p.key));
+            li.addEventListener("mousemove", () =>
+              setActive([...ul.children].indexOf(li)),
+            );
+            ul.append(li);
+          }
+          syncCombobox(ul.children.length);
+        } catch (e) {
+          if (token === searchToken) {
+            toast(e.message);
+            $("results").replaceChildren();
+            syncCombobox(0);
+          }
+        }
+      }
+      async function pick(key) {
+        const token = ++pickToken;
+        try {
+          const data = await api(
+            `/api/eval?key=${encodeURIComponent(key)}&team=${encodeURIComponent($("team").value || ioName)}`,
+          );
+          if (token !== pickToken) return;
+          selected = data;
+          $("results").replaceChildren();
+          setActive(-1);
+          syncCombobox(0);
+          if (selected.error) {
+            toast(selected.error);
+            invalidateSelection();
+            return;
+          }
+          $("search").value = selected.nome;
+          renderSelected();
+          updateControls();
+          $("price").focus();
+          $("price").select();
+        } catch (e) {
+          if (token === pickToken) toast(e.message);
+        }
+      }
+      function renderSelected() {
+        const p = selected,
+          m = p.market || {},
+          f = p.fantasy || {},
+          t = p.my_team || {},
+          b = p.maxbid_breakdown || {},
+          s = p.scarcity_breakdown || {};
+        $("player-card").classList.remove("hidden");
+        setText("pc-name", p.nome);
+        setText(
+          "pc-meta",
+          `${p.ruolo_label || p.ruolo} · ${p.squadra || "—"} · ${p.fascia || "—"}${p.status ? " · " + p.status : ""}`,
+        );
+        kv("pc-market", [
+          ["Expected", `${fmt(m.expected ?? p.suggested, 0)} cr`],
+          [
+            "Range",
+            m.range
+              ? `${fmt(m.range.lo, 0)}–${fmt(m.range.hi, 0)} cr`
+              : p.pfc_range || "—",
+          ],
+          ["Source", m.range_source || p.pfc_range || "PFC"],
+          ["PFC / PMA", `${fmt(p.base, 0)} / ${fmt(p.pma, 0)} cr`],
+          ["Inflazione", `×${fmt(m.infl ?? p.infl)}`],
+          ["Scarsità lega", `×${fmt(m.scarc ?? p.scarc)}`],
+        ]);
+        kv("pc-fantasy", [
+          ["Score / utility", fmt(f.score ?? f.utility)],
+          ["FM attesa", fmt(p.expfm)],
+          ["Titolarità", `${fmt(p.tit, 0)}%`],
+          ["FIX / TIX", `${fmt(p.fix, 0)} / ${fmt(p.tix, 0)}`],
+          ["Rischio / status", `${fmt(f.risk)} / ${p.status || "—"}`],
+          ["Rigori / FK", `${fmt(p.pen_prob, 0)}% / ${fmt(p.fk_prob, 0)}%`],
+        ]);
+        kv("pc-team-value", [
+          [
+            "Team value",
+            t.team_value === null ? "—" : `${fmt(t.team_value, 0)} cr`,
+          ],
+          ["Reason", t.reason || "guadagno marginale"],
+          ["Marginal gain", fmt(t.marginal_gain)],
+          ["Need", fmt(t.need)],
+          ["Alternativa", t.alternative?.nome || "—"],
+        ]);
+        kv("pc-caps", [
+          [
+            "Market cap",
+            b.market_cap === null ? "—" : `${fmt(b.market_cap, 0)} cr`,
+          ],
+          [
+            "Reserve cap",
+            b.reserve_cap === null ? "—" : `${fmt(b.reserve_cap, 0)} cr`,
+          ],
+          ["Role cap", b.role_cap === null ? "—" : `${fmt(b.role_cap, 0)} cr`],
+          [
+            "Opportunity cap",
+            b.opportunity_cap === null
+              ? "—"
+              : `${fmt(b.opportunity_cap, 0)} cr`,
+          ],
+          ["Binding cap", b.binding_cap || "—"],
+          ["Max sostenibile", b.final === null ? "—" : `${fmt(b.final, 0)} cr`],
+        ]);
+        const reserve = b.reserve || {};
+        setText(
+          "pc-alternative",
+          `Riserva: ${fmt(reserve.total, 0)} cr · ruolo: ${b.role?.left === undefined ? "—" : fmt(b.role.left, 0)} cr allocati · ${b.alternative ? `alternativa ${b.alternative.nome} (${fmt(b.alternative.prezzo, 0)} cr)` : "nessuna alternativa"}`,
+        );
+        kv("pc-scarcity", [
+          ["Quantitativa", `×${fmt(s.quant?.factor)}`],
+          ["Qualitativa", `×${fmt(s.qual?.factor)}`],
+          ["Economica", `×${fmt(s.econ?.factor)}`],
+          ["Competition", `×${fmt(s.competition?.factor)}`],
+          ["Finale rosa", `×${fmt(s.final ?? p.scarcity_team)}`],
+        ]);
+        setText(
+          "pc-competitors",
+          `Squadre concorrenti: ${s.competition?.teams?.join(", ") || "nessuna"} · ${s.econ?.competitors ?? 0} contendibili`,
+        );
+        const c = p.calibration || {};
+        $("pc-calib-badge").classList.toggle("hidden", !c.factor);
+        kv("pc-calibration", [
+          ["Advisory", c.factor ? "advisory non applicato" : "nessun dato"],
+          ["Fattore", fmt(c.factor)],
+          [
+            "Expected se applicato",
+            c.expected_if_applied === undefined
+              ? "—"
+              : `${fmt(c.expected_if_applied, 0)} cr`,
+          ],
+          ["CI", c.range ? `${fmt(c.range.lo, 0)}–${fmt(c.range.hi, 0)}` : "—"],
+          ["n / confidenza", `${c.n ?? "—"} / ${c.confidence || "—"}`],
+        ]);
+        $("price").value = p.suggested ?? p.base;
+        checkPriceWarning();
+      }
+      $("team").addEventListener("change", () => {
+        if (selected) pick(selected.key);
+      });
+      $("price").addEventListener("input", checkPriceWarning);
+      $("price").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          submitSold();
+        }
+      });
+      $("sold-btn").addEventListener("click", submitSold);
+      $("unsold-btn").addEventListener("click", submitUnsold);
+      $("undo-btn").addEventListener("click", async () => {
+        try {
+          const r = await api("/api/undo", { method: "POST" });
+          toast(
+            r.ok ? "Operazione annullata" : "Nessuna operazione da annullare",
+          );
+          refreshAll();
+        } catch (e) {
+          toast(e.message);
+        }
+      });
+      function checkPriceWarning() {
+        const b = selected?.maxbid_breakdown?.final;
+        const v = parseInt($("price").value, 10);
+        const box = $("price-warning");
+        if (b !== null && b !== undefined && v > b) {
+          box.textContent = `Prezzo sopra il max sostenibile (${b} cr, binding ${selected.maxbid_breakdown.binding_cap || "cap"}). Conferma esplicita richiesta: la registrazione non è bloccata.`;
+          box.classList.remove("hidden");
+        } else box.classList.add("hidden");
+      }
+      async function submitSold() {
+        if (!selected) return toast("Seleziona prima un giocatore");
+        const price = parseInt($("price").value, 10);
+        if (!price || price < 1) return toast("Prezzo non valido");
+        const max = selected.maxbid_breakdown?.final;
+        if (
+          max !== null &&
+          max !== undefined &&
+          price > max &&
+          !window.confirm(
+            `Prezzo ${price} superiore al max sostenibile ${max}. Confermi la registrazione correttiva?`,
+          )
+        )
+          return;
+        try {
+          const r = await api("/api/sold", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              key: selected.key,
+              price,
+              team: $("team").value === "ALTRO" ? null : $("team").value,
+            }),
+          });
+          toast(`${r.nome} → ${r.team} per ${price} cr`);
+          resetSelection();
+          refreshAll();
+        } catch (e) {
+          toast(e.message);
+        }
+      }
+      async function submitUnsold() {
+        if (!selected) return;
+        try {
+          const name = selected.nome;
+          await api("/api/unsold", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ key: selected.key }),
+          });
+          toast(`${name} resta invenduto`);
+          resetSelection();
+          refreshAll();
+        } catch (e) {
+          toast(e.message);
+        }
+      }
+      function resetSelection() {
+        selected = null;
+        $("player-card").classList.add("hidden");
+        $("search").value = "";
+        $("results").replaceChildren();
+        updateControls();
+        $("search").focus();
+      }
+      async function refreshAll() {
+        try {
+          const [state, trend, cal] = await Promise.all([
+            api("/api/state"),
+            api("/api/trend"),
+            api("/api/calibration"),
+          ]);
+          calibration = cal;
+          ioName = state.io || ioName;
+          renderState(state);
+          renderTrend(trend);
+          await loadLatest();
+        } catch (e) {
+          toast(e.message);
+        }
+      }
+      function renderState(s) {
+        setText("infl-badge", `Inflazione PFC ×${fmt(s.inflation)}`);
+        setText("infl-pma-badge", `Inflazione PMA ×${fmt(s.inflation_pma)}`);
+        const tb = $("roles").querySelector("tbody");
+        tb.replaceChildren();
+        for (const r of s.roles) {
+          const tr = el("tr");
+          for (const v of [
+            r.label,
+            r.demand,
+            r.usable,
+            `×${fmt(r.scarcity_med)}`,
+            `${r.quality_left}%`,
+            `${r.starters_left}/${r.starters_needed}`,
+            `×${fmt(r.fix_mean)}`,
+            r.spent,
+            `${r.spent_pct}%`,
+          ])
+            tr.append(el("td", null, v));
+          tb.append(tr);
+        }
+        const bd = $("budgets");
+        bd.replaceChildren(
+          el(
+            "div",
+            null,
+            s.budgets.map((x) => `${x[0]} ${x[1]} cr`).join(" · ") +
+              (s.spent_unknown ? ` | ALTRO ${s.spent_unknown} cr` : ""),
+          ),
+        );
+        const sel = $("team"),
+          cur = sel.value;
+        sel.replaceChildren(
+          new Option("ALTRO (squadra non tracciata)", "ALTRO"),
+        );
+        for (const [t] of s.budgets) sel.append(new Option(t, t));
+        sel.value =
+          cur && [...sel.options].some((o) => o.value === cur) ? cur : ioName;
+        const simSel = $("sim-team"),
+          simCur = simSel.value;
+        simSel.replaceChildren();
+        for (const [t] of s.budgets) simSel.append(new Option(t, t));
+        simSel.value =
+          simCur && [...simSel.options].some((o) => o.value === simCur)
+            ? simCur
+            : ioName;
+        canUndo = (s.events || 0) > 0;
+        const p = s.persistence || {};
+        const ps = $("persistence-status");
+        ps.replaceChildren();
+        if (p.enabled) {
+          ps.append(el("span", "chip persist-on", "● enabled"));
+          ps.append(el("span", "chip", `event_seq ${p.event_seq ?? "—"}`));
+          ps.append(el("span", "chip", `last_saved ${fmtWhen(p.last_saved)}`));
+        } else {
+          ps.append(
+            el(
+              "span",
+              "chip persist-off",
+              "Persistenza disabilitata (--no-store)",
+            ),
+          );
+        }
+        $("backup-btn").disabled = !p.enabled;
+        $("restore-file").disabled = !p.enabled;
+        $("correct-btn").disabled = !p.enabled;
+        updateControls();
+      }
+      function renderTrend(t) {
+        setBadge("pfc-badge", "vs PFC", t.verdict.pfc, t.verdict_labels.pfc);
+        setBadge("pma-badge", "vs PMA", t.verdict.pma, t.verdict_labels.pma);
+        const v = t.verdict.pfc,
+          vd = el("div");
+        vd.append(
+          el(
+            "div",
+            null,
+            `vs PFC: ${t.verdict_labels.pfc} · ultime ${t.window} vendite`,
+          ),
+          el("div", null, `vs PMA: ${t.verdict_labels.pma}`),
+        );
+        $("verdict").replaceChildren(vd);
+        const chips = $("role-chips");
+        chips.replaceChildren();
+        for (const k of ["pfc", "pma"])
+          for (const [r] of Object.entries(t.roles[k]))
+            chips.append(
+              el(
+                "span",
+                "chip",
+                `${k.toUpperCase()} ${r}: ${t.role_labels[k][r]}`,
+              ),
+            );
+        drawChart(t.events);
+        const list = $("recent");
+        list.replaceChildren();
+        const recent = [...t.events].reverse().slice(0, 10);
+        if (!recent.length)
+          list.append(el("li", "mut", "Nessuna operazione registrata."));
+        for (const e of recent) {
+          const li = el("li");
+          li.append(
+            el("span", "rb " + e.ruolo, e.ruolo),
+            el("span", null, e.nome),
+          );
+          if (e.team) li.append(el("span", "mut", "→ " + e.team));
+          li.append(
+            el("b", null, e.kind === "sold" ? `${e.price} cr` : "invenduto"),
+          );
+          if (e.kind === "sold") li.append(el("span", "mut", `PFC ${e.base}`));
+          list.append(li);
+        }
+      }
+      function setBadge(id, label, v, text) {
+        const n = $(id);
+        n.textContent = `${label}: ${text}`;
+        n.className =
+          "badge " +
+          (v.verdict === "rise"
+            ? "rise"
+            : v.verdict === "fall"
+              ? "fall"
+              : "stable");
+      }
+      function drawChart(events) {
+        const svg = $("chart");
+        svg.replaceChildren();
+        if (!events.length) {
+          svg.append(
+            svgEl("text", {
+              x: 300,
+              y: 120,
+              fill: "#8b96a8",
+              "text-anchor": "middle",
+            }),
+          );
+          svg.lastChild.textContent = "Nessun dato: registra la prima vendita.";
+          return;
+        }
+        const W = 600,
+          H = 240,
+          L = 46,
+          R = 12,
+          T = 34,
+          B = 10,
+          vals = [1, ...events.map((e) => e.infl)];
+        let lo = Math.min(...vals),
+          hi = Math.max(...vals),
+          pad = Math.max(0.06, (hi - lo) * 0.15);
+        lo -= pad;
+        hi += pad;
+        const x = (i) =>
+            events.length === 1
+              ? (L + W - R) / 2
+              : L + ((W - L - R) * i) / (events.length - 1),
+          y = (v) => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
+        svg.append(
+          svgEl("line", {
+            x1: L,
+            y1: y(1),
+            x2: W - R,
+            y2: y(1),
+            stroke: "#556077",
+            "stroke-dasharray": "4 4",
+          }),
+        );
+        for (const [e, i] of events.map((e, i) => [e, i]))
+          svg.append(
+            svgEl("circle", {
+              cx: x(i),
+              cy: y(e.infl),
+              r: 2.5,
+              fill: "#4da3ff",
+            }),
+          );
+      }
+      function downloadCsv(url, name) {
+        fetch(url)
+          .then(async (r) => {
+            if (!r.ok)
+              throw new Error(
+                (await r.json().catch(() => ({}))).error || "download fallito",
+              );
+            const blob = await r.blob(),
+              a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = name;
+            document.body.append(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+          })
+          .catch((e) => toast(e.message));
+      }
+      $("exp-svincolati-btn").addEventListener("click", () =>
+        downloadCsv(
+          `/api/export/svincolati?ruolo=${encodeURIComponent($("exp-role").value)}`,
+          "svincolati.csv",
+        ),
+      );
+      $("exp-rose-btn").addEventListener("click", () =>
+        downloadCsv("/api/export/rose", "rose_squadre.csv"),
+      );
+      async function loadLatest() {
+        try {
+          const env = await api("/api/forward/latest");
+          if (env.state_hash) showSimulation(env);
+        } catch (e) {
+          if (e.status === 404) {
+            simEnvelope = null;
+            $("sim-output").classList.add("hidden");
+            $("sim-status").textContent =
+              "Nessun report per lo stato corrente (nessun dato stale mostrato).";
+          } else
+            $("sim-status").textContent =
+              "Ultimo report non disponibile: " + e.message;
+        }
+      }
+      function reportRows(container, rows, make) {
+        const n = $(container);
+        n.replaceChildren();
+        for (const row of rows) n.append(make(row));
+      }
+      function hideEmptyPager(key, empty) {
+        const pg = $("sim-pager-" + key);
+        if (empty) {
+          pg.classList.add("hidden");
+        } else {
+          pg.classList.remove("hidden");
+        }
+      }
+      function paginate(tbodyId, key, rows, make, pageSize = 50) {
+        const tb = $(tbodyId);
+        tb.replaceChildren();
+        const total = rows.length;
+        const pages = Math.max(1, Math.ceil(total / pageSize));
+        const cur = Math.min(simPage[key], pages - 1);
+        simPage[key] = cur;
+        const slice = rows.slice(cur * pageSize, (cur + 1) * pageSize);
+        for (const row of slice) tb.append(make(row));
+        setText(
+          "sim-page-info-" + key,
+          total
+            ? `${cur * pageSize + 1}–${cur * pageSize + slice.length} di ${total}`
+            : "0 risultati",
+        );
+        $("sim-page-prev-" + key).disabled = cur <= 0;
+        $("sim-page-next-" + key).disabled = cur >= pages - 1;
+        hideEmptyPager(key, total <= pageSize);
+      }
+      function renderSimSummary(env) {
+        const wrap = $("sim-summary");
+        wrap.replaceChildren();
+        const sp = (env && env.simulate_params) || {};
+        const labels = [
+          [`Runs ${sp.runs ?? "—"}`],
+          [`Seed ${sp.seed ?? "—"}`],
+          [`Prospettiva ${sp.team || "IO"}`],
+          [`Ordine ${sp.player_order || "—"}`],
+        ];
+        for (const [t] of labels) wrap.append(el("span", "chip", t));
+      }
+      function showSimulation(env) {
+        simEnvelope = env;
+        $("sim-output").classList.remove("hidden");
+        const sp = (env && env.simulate_params) || {};
+        // idrata i controlli dai parametri del report latest/cache/fresh
+        if (sp.runs !== undefined) $("sim-runs").value = sp.runs;
+        if (sp.seed !== undefined && sp.seed !== null)
+          $("sim-seed").value = sp.seed;
+        if (sp.team) {
+          const sel = $("sim-team");
+          if ([...sel.options].some((o) => o.value === sp.team))
+            sel.value = sp.team;
+        }
+        if (sp.player_order) $("sim-order").value = sp.player_order;
+        setText(
+          "sim-status",
+          `${env.cached ? "Cache hit" : "Calcolato"} · ${fmt(env.duration_ms, 1)} ms · stato ${env.event_seq ?? "—"}`,
+        );
+        renderSimSummary(env);
+        renderSim();
+      }
+      function renderSim() {
+        const r = simEnvelope?.result;
+        if (!r) return;
+        const q = ($("sim-filter-player").value || "").toLowerCase(),
+          team = $("sim-filter-team").value,
+          sort = $("sim-sort").value,
+          names = {};
+        for (const p of r.per_player || []) names[p.pid] = p.nome;
+        let players = (r.per_player || [])
+          .filter((p) => !q || `${p.nome} ${p.pid}`.toLowerCase().includes(q))
+          .sort((a, b) =>
+            sort === "name"
+              ? a.nome.localeCompare(b.nome)
+              : (b[sort] ?? -1) - (a[sort] ?? -1),
+          );
+        paginate("sim-players-body", "players", players, (p) => {
+          const tr = el("tr");
+          const delta = p.divergence?.sim_minus_value;
+          [
+            p.nome,
+            fmt(p.avg_price, 1),
+            fmt(p.p10_price, 1),
+            fmt(p.p50_price, 1),
+            fmt(p.p90_price, 1),
+            pct(p.sale_prob),
+            delta === null || delta === undefined ? "—" : fmt(delta, 1),
+          ].forEach((v) => tr.append(el("td", null, v)));
+          return tr;
+        });
+        const probs = (r.team_player_prob || []).filter(
+          (p) =>
+            (!team || p.team === team) &&
+            (!q || `${names[p.pid] || ""} ${p.pid}`.toLowerCase().includes(q)),
+        );
+        paginate("sim-probs-body", "probs", probs, (p) => {
+          const tr = el("tr");
+          [p.team, names[p.pid] || p.pid, pct(p.prob)].forEach((v) =>
+            tr.append(el("td", null, v)),
+          );
+          return tr;
+        });
+        const combos = [];
+        for (const t of r.per_team || []) {
+          if (team && t.team !== team) continue;
+          for (const c of t.top_rosters || [])
+            combos.push({
+              ...c,
+              team: t.team,
+              budget: t.budget_end_avg,
+              slots: t.slots_filled_avg,
+              unfilled: t.unfilled_prob,
+            });
+        }
+        paginate("sim-combos-body", "combos", combos, (c) => {
+          const tr = el("tr");
+          [
+            c.team,
+            (c.players || []).join(", "),
+            pct(c.pct),
+            fmt(c.budget, 1),
+            fmt(c.slots, 1),
+            pct(c.unfilled),
+          ].forEach((v) => tr.append(el("td", null, v)));
+          return tr;
+        });
+        const teams = [
+          ...new Set((r.team_player_prob || []).map((p) => p.team)),
+        ];
+        const fs = $("sim-filter-team"),
+          cur = fs.value;
+        fs.replaceChildren(new Option("Tutti i team", ""));
+        for (const t of teams) fs.append(new Option(t, t));
+        fs.value = teams.includes(cur) ? cur : "";
+        const c = r.competition || {},
+          f = r.feasibility || {},
+          cp = c.completion_phase || {};
+        const out = $("sim-feasibility");
+        out.replaceChildren(
+          el(
+            "div",
+            null,
+            `Competition: media eleggibili ${fmt(c.avg_eligible_overall, 1)} · 1 bidder ${pct(c.share_single_bidder)} · 2+ ${pct(c.share_two_plus)} · zero ${pct(c.share_zero_bids)}`,
+          ),
+          el(
+            "div",
+            null,
+            `Completion: ${cp.n_runs_with_phase ?? 0} run · acquisti forzati medi ${fmt(cp.avg_forced_purchases, 1)}`,
+          ),
+          el(
+            "div",
+            null,
+            `Feasibility: ${f.ok ? "OK" : "infeasible"} · shortfall ${f.shortfall ?? 0}`,
+          ),
+        );
+        if ((f.warnings || []).length)
+          out.append(el("div", "warning", "Warning: " + f.warnings.join("; ")));
+      }
+      $("simulate-btn").addEventListener("click", async () => {
+        const btn = $("simulate-btn");
+        const runs = parseInt($("sim-runs").value, 10);
+        btn.disabled = true;
+        setText("sim-status", "Simulazione in corso…");
+        try {
+          const snap = await api("/api/forward/snapshot");
+          if (!snap.pool_count)
+            throw Object.assign(
+              new Error("pool Attaccanti vuoto: niente da simulare"),
+              { status: 400 },
+            );
+          const env = await api("/api/forward/simulate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              runs,
+              seed: parseInt($("sim-seed").value, 10),
+              team: $("sim-team").value || null,
+              player_order: $("sim-order").value,
+            }),
+          });
+          showSimulation(env);
+        } catch (e) {
+          setText(
+            "sim-status",
+            e.status === 400 || e.status === 409
+              ? `Simulazione non eseguita: ${e.message}`
+              : `Errore simulazione: ${e.message}`,
+          );
+          $("sim-output").classList.add("hidden");
+        } finally {
+          btn.disabled = false;
+        }
+      });
+      $("latest-btn").addEventListener("click", loadLatest);
+      for (const id of ["sim-filter-player", "sim-sort", "sim-filter-team"])
+        $(id).addEventListener("input", () => {
+          if (simEnvelope) {
+            simPage.players = 0;
+            simPage.probs = 0;
+            simPage.combos = 0;
+            renderSim();
+          }
+        });
+      for (const key of ["players", "probs", "combos"]) {
+        $("sim-page-prev-" + key).addEventListener("click", () => {
+          if (!simEnvelope) return;
+          simPage[key] = Math.max(0, simPage[key] - 1);
+          renderSim();
+        });
+        $("sim-page-next-" + key).addEventListener("click", () => {
+          if (!simEnvelope) return;
+          simPage[key]++;
+          renderSim();
+        });
+      }
+      async function fetchBackup() {
+        if ($("backup-btn").disabled) return null;
+        try {
+          return await api("/api/backup");
+        } catch (e) {
+          toast(e.message);
+          return null;
+        }
+      }
+      $("backup-btn").addEventListener("click", async () => {
+        const d = await fetchBackup();
+        if (!d) return;
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(
+          new Blob([JSON.stringify(d, null, 2)], { type: "application/json" }),
+        );
+        a.download = "openfanta-backup.json";
+        document.body.append(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      });
+      let restoreDoc = null;
+      $("restore-btn").addEventListener("click", () =>
+        $("restore-file").click(),
+      );
+      $("restore-file").addEventListener("change", async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+          restoreDoc = JSON.parse(await file.text());
+          $("restore-dialog").showModal();
+        } catch (err) {
+          toast("JSON non valido: " + err.message);
+          e.target.value = "";
+        }
+      });
+      $("restore-cancel").addEventListener("click", () =>
+        $("restore-dialog").close(),
+      );
+      $("restore-confirm").addEventListener("click", async () => {
+        if (!restoreDoc?.events) {
+          toast("Backup senza events");
+          return;
+        }
+        if (
+          !window.confirm(
+            "CONFERMA FORTE: il restore può sostituire definitivamente il log e azzerare lo stato. Continuare?",
+          )
+        )
+          return;
+        try {
+          const r = await api("/api/restore", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              mode: $("restore-mode").value,
+              events: restoreDoc.events,
+              meta: restoreDoc.meta || null,
+            }),
+          });
+          toast(`Restore completato: ${r.events} eventi`);
+          $("restore-dialog").close();
+          refreshAll();
+        } catch (e) {
+          toast(e.message);
+        }
+      });
+      $("correct-btn").addEventListener("click", async () => {
+        const d = await fetchBackup();
+        if (!d) return;
+        const superseded = new Set(
+          (d.events || [])
+            .map((e) => e.supersedes)
+            .filter((x) => x !== null && x !== undefined),
+        );
+        const sold = (d.events || [])
+          .filter((e) => e.type === "sold" && !superseded.has(e.seq))
+          .sort((a, b) => b.seq - a.seq)[0];
+        if (!sold) return toast("Nessuna vendita attiva da rettificare");
+        const price = prompt(
+          `Prezzo corretto per ${sold.payload.nome}`,
+          String(sold.payload.price),
+        );
+        if (price === null) return;
+        const team = prompt("Squadra acquirente", sold.payload.team || ioName);
+        if (team === null) return;
+        try {
+          await api("/api/correct", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              target_seq: sold.seq,
+              kind: "restate",
+              price: parseInt(price, 10),
+              team,
+            }),
+          });
+          toast("Ultima vendita rettificata");
+          refreshAll();
+        } catch (e) {
+          toast(e.message);
+        }
+      });
+      const cfgDialog = $("config-dialog");
+      $("config-btn").addEventListener("click", async () => {
+        try {
+          const c = await api("/api/config");
+          $("cfg-teams").value = c.teams;
+          $("cfg-budget").value = c.budget;
+          $("cfg-tit").value = c.tit_cov_threshold;
+          $("cfg-names").value = c.names.join("\n");
+          for (const r of roles) {
+            $("slot-" + r).value = c.slots[r];
+            $("form-" + r).value = c.formation[r];
+          }
+          syncIo(c.io);
+          cfgDialog.showModal();
+        } catch (e) {
+          toast(e.message);
+        }
+      });
+      $("cfg-cancel").addEventListener("click", () => cfgDialog.close());
+      $("cfg-names").addEventListener("input", () => syncIo($("cfg-io").value));
+      function syncIo(cur) {
+        const names = $("cfg-names")
+            .value.split("\n")
+            .map((x) => x.trim())
+            .filter(Boolean),
+          s = $("cfg-io");
+        s.replaceChildren(...names.map((n) => new Option(n, n)));
+        if (names.includes(cur)) s.value = cur;
+      }
+      $("cfg-apply").addEventListener("click", async () => {
+        if (
+          !window.confirm(
+            "Conferma reset: tutte le vendite e tendenze della nuova configurazione partiranno da zero. Continuare?",
+          )
+        )
+          return;
+        const body = {
+          teams: parseInt($("cfg-teams").value, 10),
+          budget: parseInt($("cfg-budget").value, 10),
+          names: $("cfg-names")
+            .value.split("\n")
+            .map((x) => x.trim())
+            .filter(Boolean),
+          io: $("cfg-io").value || null,
+          slots: Object.fromEntries(
+            roles.map((r) => [r, parseInt($("slot-" + r).value, 10)]),
+          ),
+          formation: Object.fromEntries(
+            roles.map((r) => [r, parseInt($("form-" + r).value, 10)]),
+          ),
+          tit_cov_threshold: parseInt($("cfg-tit").value, 10),
+        };
+        try {
+          const r = await api("/api/config", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          const f = r.feasibility || {};
+          const box = $("cfg-feasibility");
+          box.replaceChildren(
+            el(
+              "div",
+              null,
+              `Costo minimo rosa: ${r.minimum_roster_cost ?? "—"} cr`,
+            ),
+          );
+          if ((f.errors || []).length)
+            box.append(el("div", "danger", "Errori: " + f.errors.join("; ")));
+          if ((f.warnings || []).length)
+            box.append(
+              el("div", "warning", "Warning: " + f.warnings.join("; ")),
+            );
+          setText(
+            "config-minimum-roster-cost",
+            `Costo minimo rosa: ${r.minimum_roster_cost ?? "—"} cr`,
+          );
+          setText(
+            "config-feasibility-errors",
+            (f.errors || []).length ? "Errori: " + f.errors.join("; ") : "",
+          );
+          setText(
+            "config-feasibility-warnings",
+            (f.warnings || []).length
+              ? "Warning: " + f.warnings.join("; ")
+              : "",
+          );
+          if (!(f.warnings || []).length) cfgDialog.close();
+          toast(
+            (f.warnings || []).length
+              ? "Configurazione applicata: verifica i warning nel dialog"
+              : "Configurazione applicata: asta azzerata",
+          );
+          refreshAll();
+        } catch (e) {
+          setText("cfg-feasibility", e.message);
+          toast(e.message);
+        }
+      });
+      refreshAll().catch((e) => toast(e.message));
+    </script>
+  </body>
+</html>
