@@ -4,8 +4,9 @@ Casi sintetici ai confini: pass/no-pass esatti sulle soglie, mai pass su
 NaN/n insufficiente/leakage, metriche non computabili = None (mai NaN).
 """
 
-import gates  # pyright: ignore[reportMissingImports]
 import pytest  # pyright: ignore[reportMissingImports]
+
+from openfanta.core import gates  # pyright: ignore[reportMissingImports]
 
 
 def test_gate_pass_con_dati_sufficienti():

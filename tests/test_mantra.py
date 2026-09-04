@@ -1,14 +1,17 @@
 """Acceptance tests for the Fantacalcio Mantra auction modality."""
 
-import league_config  # pyright: ignore[reportMissingImports]
 import pytest  # pyright: ignore[reportMissingImports]
-import web_auction as wa  # pyright: ignore[reportMissingImports]
 from conftest import make_player  # pyright: ignore[reportMissingImports]
-from live_auction import (  # pyright: ignore[reportMissingImports]
+
+import openfanta.web.app as wa  # pyright: ignore[reportMissingImports]
+from openfanta.core import (
+    config as league_config,  # pyright: ignore[reportMissingImports]
+)
+from openfanta.core.auction import (  # pyright: ignore[reportMissingImports]
     Auction,
     SlotUnavailableError,
 )
-from mantra import (  # pyright: ignore[reportMissingImports]
+from openfanta.core.mantra import (  # pyright: ignore[reportMissingImports]
     MANTRA_FORMATIONS,
     best_lineup,
     parse_roles,

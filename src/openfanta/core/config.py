@@ -3,7 +3,7 @@
 Questo modulo e' l'unica fonte di verita' per la configurazione della lega:
 
 - ``DEFAULTS``, ``ROLE_ORDER``, ``ROLE_LABEL``, ``norm`` (ri-esportati da
-  ``live_auction`` e ``web_auction`` per compatibilita').
+  ``openfanta.core.auction`` e ``openfanta.web.app`` per compatibilita').
 - ``normalize(cfg)`` — rende canonica una configurazione parziale: completa con
   i default, allinea i nomi squadra (strip, squadra ``io`` presente), riempie
   slot/formation per ruolo. Non valida: tipi e limiti restano a ``validate()``.
@@ -40,8 +40,8 @@ from unicodedata import normalize as _unicode_normalize
 # WP8: validazione del blocco calibrazione delegata a ``calibration`` (unica
 # fonte di verita' dei parametri calibration_*). ``calibration`` e' puro
 # stdlib e non importa league_config: nessun ciclo.
-import calibration
-from mantra import (  # pyright: ignore[reportMissingImports]
+from openfanta.core import calibration
+from openfanta.core.mantra import (  # pyright: ignore[reportMissingImports]
     MANTRA_FORMATIONS,
     has_explicit_roles,
     player_roles,

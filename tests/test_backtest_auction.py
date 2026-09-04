@@ -8,8 +8,9 @@ exit codes. Nessun dato storico inventato nel repo: tutto vive in tmp.
 
 import json
 
-import backtest_auction as bta  # pyright: ignore[reportMissingImports]
 import pytest  # pyright: ignore[reportMissingImports]
+
+import openfanta.backtest.price as bta  # pyright: ignore[reportMissingImports]
 
 SALES_HEADER = "pid,nome,ruolo,price,team,seq,ts,season\n"
 LISTONE_HEADER = "pid,nome,squadra,ruolo,pfc,pma,slot,tit,expfm,fascia,status\n"
@@ -24,8 +25,10 @@ def write_listone(path, players):
 
 
 def pid_of(nome, ruolo):
-    from league_config import norm  # pyright: ignore[reportMissingImports]
-    from live_auction import compute_pid  # pyright: ignore[reportMissingImports]
+    from openfanta.core.auction import (
+        compute_pid,  # pyright: ignore[reportMissingImports]
+    )
+    from openfanta.core.config import norm  # pyright: ignore[reportMissingImports]
 
     return compute_pid(norm(nome), ruolo)
 

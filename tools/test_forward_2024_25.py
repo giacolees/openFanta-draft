@@ -17,7 +17,7 @@ Output:
 - data/Forward_Test_2024_25_on_FM_2025_26.csv   (per giocatore: rating, PredFM, FM 25/26, FVM)
 - data/audit_forward_2024_25.csv / .txt          (metriche per ruolo + importanza feature)
 
-Uso:  python3 scripts/test_forward_2024_25.py
+Uso:  python3 tools/test_forward_2024_25.py
 """
 
 import csv
@@ -40,7 +40,7 @@ OUT_AUDIT = os.path.join(BASE_DIR, "data", "audit_forward_2024_25.csv")
 OUT_TXT = os.path.join(BASE_DIR, "data", "audit_forward_2024_25.txt")
 
 # Importa il modulo del rating come libreria (main() e' protetto dal guard __main__)
-sys.path.insert(0, os.path.join(BASE_DIR, "scripts"))
+sys.path.insert(0, os.path.join(BASE_DIR, "tools"))
 import build_stats_rating_2025_26 as base
 
 BASE = base  # alias per il resto del file

@@ -1,4 +1,4 @@
-"""Test dello store event-sourced (scripts/auction_store.py) — WP4.
+"""Test dello store event-sourced (openfanta.core.store) — WP4.
 
 Coprono, sul livello store (SQLite + replay senza HTTP):
 - append/read_all con ``seq`` monotone univoche; nessun DELETE di singolo evento;
@@ -17,7 +17,9 @@ import json
 import threading
 
 import pytest  # pyright: ignore[reportMissingImports]
-from auction_store import (  # pyright: ignore[reportMissingImports]
+from conftest import PLAYERS  # pyright: ignore[reportMissingImports]
+
+from openfanta.core.store import (  # pyright: ignore[reportMissingImports]
     AuctionStore,
     StoreError,
     StoreValidationError,
@@ -25,9 +27,10 @@ from auction_store import (  # pyright: ignore[reportMissingImports]
     apply_event,
     replay_engine,
 )
-from conftest import PLAYERS  # pyright: ignore[reportMissingImports]
-from import_listone import compute_pid  # pyright: ignore[reportMissingImports]
-from web_auction import TrendAuction  # pyright: ignore[reportMissingImports]
+from openfanta.ingest.listone import (
+    compute_pid,  # pyright: ignore[reportMissingImports]
+)
+from openfanta.web.app import TrendAuction  # pyright: ignore[reportMissingImports]
 
 DEFAULT_CFG = {
     "teams": 3,

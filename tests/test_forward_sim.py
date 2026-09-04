@@ -7,19 +7,17 @@ infeasible bloccate.
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-
 import pytest  # pyright: ignore[reportMissingImports]
-from forward_agg import report  # pyright: ignore[reportMissingImports]
-from forward_bidding import (  # pyright: ignore[reportMissingImports]
+
+from openfanta.forward.agg import report  # pyright: ignore[reportMissingImports]
+from openfanta.forward.bidding import (  # pyright: ignore[reportMissingImports]
     BidConfig,
     team_infeasible,
 )
-from forward_sim import simulate  # pyright: ignore[reportMissingImports]
-from forward_state import state_from_snapshot  # pyright: ignore[reportMissingImports]
+from openfanta.forward.sim import simulate  # pyright: ignore[reportMissingImports]
+from openfanta.forward.state import (
+    state_from_snapshot,  # pyright: ignore[reportMissingImports]
+)
 
 CFG = BidConfig()
 

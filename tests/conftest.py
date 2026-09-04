@@ -1,25 +1,21 @@
 """Infrastruttura di test condivisa (WP1).
 
-- Inserisce ``scripts/`` in ``sys.path`` una sola volta, prima di ogni test
-  module: i test importano ``live_auction`` / ``web_auction`` senza duplicare
-  il path in testa a ogni file.
+- Il package ``openfanta`` e' importabile via ``pythonpath = ["src"]`` in
+  ``pyproject.toml``: i test importano ``openfanta.core.auction`` /
+  ``openfanta.web.app`` senza duplicare path in testa a ogni file.
 - Fixtures essenziali del dominio: ``build`` (fabbrica di ``Auction`` di test),
   ``by_name`` (lookup sicuro con assert) e gli helper di costruzione giocatori
   (``make_player`` / ``PLAYERS``), unica fonte dello schema giocatore nei test.
 """
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-
 import pytest  # pyright: ignore[reportMissingImports]
-from live_auction import Auction  # pyright: ignore[reportMissingImports]
+
+from openfanta.core.auction import Auction
 
 DEFAULT_SLOTS = {"P": 3, "D": 3, "C": 3, "A": 6}
 # Formazione di riferimento coerente con DEFAULT_SLOTS: la fabbrica deriva
 # sempre una formation <= slots effettivi (invariante strutturale di
-# league_config, valida anche nel profilo "engine" del costruttore).
+# openfanta.core.config, valida anche nel profilo "engine" del costruttore).
 DEFAULT_FORMATION = {"P": 1, "D": 1, "C": 1, "A": 4}
 
 

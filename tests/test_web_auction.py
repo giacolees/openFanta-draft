@@ -1,4 +1,4 @@
-"""Test API (scripts/web_auction.py) e validazione configurazione del dominio.
+"""Test API (openfanta.web.app) e validazione configurazione del dominio.
 
 Coprono il layer HTTP senza dipendere dal server reale: gli handler FastAPI
 vengono invocati direttamente con i loro body pydantic, e il globale
@@ -20,10 +20,11 @@ Scenario richiesti:
 import json
 
 import pytest  # pyright: ignore[reportMissingImports]
-import web_auction as wa  # pyright: ignore[reportMissingImports]
 from conftest import pid_of
 from fastapi.responses import JSONResponse  # pyright: ignore[reportMissingImports]
-from live_auction import (  # pyright: ignore[reportMissingImports]
+
+import openfanta.web.app as wa  # pyright: ignore[reportMissingImports]
+from openfanta.core.auction import (  # pyright: ignore[reportMissingImports]
     DEFAULTS,
     Auction,
     ConfigError,

@@ -1,4 +1,4 @@
-"""Test unitari del motore di dominio dell'asta (scripts/live_auction.py).
+"""Test unitari del motore di dominio dell'asta (openfanta.core.auction).
 
 Coprono le invarianti centralizzate nella vendita (player nel pool, prezzo
 intero positivo, squadra valida o ALTRO esplicito, budget sufficiente, slot
@@ -7,7 +7,7 @@ anomali (vendite ALTRO oltre il tetto, slot iniziali zero, pool vuoto), il
 deep-copy dei player del chiamante e il validator ``check_invariants``
 (incluse le corruzioni intenzionali che deve rilevare).
 
-Infrastruttura condivisa (sys.path per scripts/, fixtures build/by_name,
+Infrastruttura condivisa (fixtures build/by_name,
 schema giocatore) in tests/conftest.py.
 """
 
@@ -16,7 +16,8 @@ import math
 
 import pytest  # pyright: ignore[reportMissingImports]
 from conftest import pid_of
-from live_auction import (  # pyright: ignore[reportMissingImports]
+
+from openfanta.core.auction import (  # pyright: ignore[reportMissingImports]
     Auction,
     AuctionError,
     InsufficientBudgetError,

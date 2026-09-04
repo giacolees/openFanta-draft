@@ -1,4 +1,4 @@
-"""Test del modulo di valutazione per-singola-squadra (scripts/valuation.py) — WP5.
+"""Test del modulo di valutazione per-singola-squadra (openfanta.core.valuation) — WP5.
 
 Coprono la scarsità per ruolo e per singola squadra, separata in quattro
 componenti (quantitativa, qualitativa, economica, competizione):
@@ -21,13 +21,14 @@ componenti (quantitativa, qualitativa, economica, competizione):
 import math
 
 import pytest  # pyright: ignore[reportMissingImports]
-import valuation  # pyright: ignore[reportMissingImports]
-import web_auction as wa  # pyright: ignore[reportMissingImports]
 from conftest import (
     DEFAULT_FORMATION,
     DEFAULT_SLOTS,
     make_player,
 )
+
+import openfanta.web.app as wa  # pyright: ignore[reportMissingImports]
+from openfanta.core import valuation  # pyright: ignore[reportMissingImports]
 
 FACTOR_KEYS = ("quant", "qual", "econ", "competition")
 

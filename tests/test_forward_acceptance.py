@@ -10,6 +10,7 @@ in tmp (mai persistenza in ``data/`` durante i test).
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -17,14 +18,23 @@ from pathlib import Path
 
 import pytest  # pyright: ignore[reportMissingImports]
 
+from openfanta.forward.state import (  # pyright: ignore[reportMissingImports]
+    snapshot_from_auction,
+)
+
 REPO = Path(__file__).resolve().parent.parent
-SCRIPTS = REPO / "scripts"
-CLI = REPO / "scripts" / "forward_simulator.py"
+SRC = REPO / "src"
+CLI = SRC / "openfanta" / "forward" / "cli.py"
 LISTONE = REPO / "data" / "listone.csv"
 
-sys.path.insert(0, str(SCRIPTS))
 
-from forward_state import snapshot_from_auction  # pyright: ignore[reportMissingImports]
+def _cli_env() -> dict[str, str]:
+    """Env per il CLI in subprocess: ``src/`` in PYTHONPATH cosi' gli import
+    assoluti ``openfanta.*`` si risolvono anche senza package installato."""
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(SRC) + os.pathsep + env.get("PYTHONPATH", "")
+    return env
+
 
 SALES = (
     "MALEN 300 IO, MARTINEZ L. 250 T1, HOJLUND 220 T2, KEAN 180 T3, "
@@ -52,6 +62,7 @@ def _run_cli(args: list[str], cwd: Path | None = None) -> subprocess.CompletedPr
         text=True,
         cwd=str(cwd or REPO),
         timeout=120,
+        env=_cli_env(),
         check=False,  # il chiamante ispeziona il returncode
     )
 
@@ -60,7 +71,7 @@ def _listone_snapshot(tmp_path: Path) -> Path:
     """Snapshot 'fase finale' dal listone reale via auction live + vendite."""
 
     try:
-        from live_auction import (  # pyright: ignore[reportMissingImports]
+        from openfanta.core.auction import (  # pyright: ignore[reportMissingImports]
             Auction,
             load_players,
         )

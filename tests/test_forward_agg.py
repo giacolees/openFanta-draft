@@ -8,14 +8,10 @@ from __future__ import annotations
 
 import json
 import math
-import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-
-from forward_agg import report  # pyright: ignore[reportMissingImports]
-from forward_bidding import BidConfig  # pyright: ignore[reportMissingImports]
-from forward_sim import simulate  # pyright: ignore[reportMissingImports]
+from openfanta.forward.agg import report  # pyright: ignore[reportMissingImports]
+from openfanta.forward.bidding import BidConfig  # pyright: ignore[reportMissingImports]
+from openfanta.forward.sim import simulate  # pyright: ignore[reportMissingImports]
 
 CFG = BidConfig()
 

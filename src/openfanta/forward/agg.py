@@ -24,9 +24,9 @@ import hashlib
 import json
 from typing import Any
 
-from forward_bidding import BidConfig
-from forward_sim import SimResult
-from forward_state import band_of
+from openfanta.forward.bidding import BidConfig
+from openfanta.forward.sim import SimResult
+from openfanta.forward.state import band_of
 
 
 # ------------------------------------------------------------- canonica/cache

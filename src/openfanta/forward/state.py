@@ -345,7 +345,7 @@ def purchase(
     - squadra non tracciata (``TeamNotFoundError``).
     Non muta mai lo stato dato.
     """
-    from forward_bidding import min_price_for  # evita l'import circolare
+    from openfanta.forward.bidding import min_price_for  # evita l'import circolare
 
     if pid not in state.pool:
         raise NotInPoolError(f"giocatore {pid!r} non e' nel pool")

@@ -26,10 +26,11 @@ propagazione in ``evaluate``, ``player_payload``/``/api/eval`` e
 import math
 
 import pytest  # pyright: ignore[reportMissingImports]
-import valuation as v  # pyright: ignore[reportMissingImports]
-import web_auction as wa  # pyright: ignore[reportMissingImports]
 from conftest import DEFAULT_FORMATION, DEFAULT_SLOTS, make_player
-from live_auction import (  # pyright: ignore[reportMissingImports]
+
+import openfanta.web.app as wa  # pyright: ignore[reportMissingImports]
+from openfanta.core import valuation as v  # pyright: ignore[reportMissingImports]
+from openfanta.core.auction import (  # pyright: ignore[reportMissingImports]
     Auction,
     load_players,
 )

@@ -11,5 +11,25 @@ dependencies = [
   "uvicorn[standard]>=0.52.4",
 ]
 
+[project.scripts]
+openfanta-live = "openfanta.core.auction:main"
+openfanta-web = "openfanta.web.app:main"
+openfanta-import-listone = "openfanta.ingest.listone:main"
+openfanta-import-mantra-roles = "openfanta.ingest.mantra_roles:main"
+openfanta-forward = "openfanta.forward.cli:main"
+openfanta-backtest-price = "openfanta.backtest.price:main"
+openfanta-backtest-yield = "openfanta.backtest.yield_report:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
 [dependency-groups]
 dev = ["httpx>=0.27", "pytest>=8"]

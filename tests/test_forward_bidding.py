@@ -9,13 +9,8 @@ from __future__ import annotations
 
 import math
 import random
-import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-
-
-from forward_bidding import (  # pyright: ignore[reportMissingImports]
+from openfanta.forward.bidding import (  # pyright: ignore[reportMissingImports]
     BidConfig,
     conduct_round,
     eligible,
@@ -30,11 +25,11 @@ from forward_bidding import (  # pyright: ignore[reportMissingImports]
     sample_wtp,
     team_infeasible,
 )
-from forward_sim import (  # pyright: ignore[reportMissingImports]
+from openfanta.forward.sim import (  # pyright: ignore[reportMissingImports]
     SimStatics,
     _build_statics,
 )
-from forward_state import (  # pyright: ignore[reportMissingImports]
+from openfanta.forward.state import (  # pyright: ignore[reportMissingImports]
     TeamView,
     state_from_snapshot,
 )

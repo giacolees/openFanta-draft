@@ -1,4 +1,4 @@
-"""Test del maxbid a 4 cap trasparenti (scripts/valuation.py) — WP6.
+"""Test del maxbid a 4 cap trasparenti (openfanta.core.valuation) — WP6.
 
 Coprono il modello che sostituisce il maxbid legacy ``suggested × aggression``:
 
@@ -26,9 +26,10 @@ Coprono il modello che sostituisce il maxbid legacy ``suggested × aggression``:
 """
 
 import pytest  # pyright: ignore[reportMissingImports]
-import valuation as v  # pyright: ignore[reportMissingImports]
-import web_auction as wa  # pyright: ignore[reportMissingImports]
 from conftest import DEFAULT_FORMATION, DEFAULT_SLOTS, make_player
+
+import openfanta.web.app as wa  # pyright: ignore[reportMissingImports]
+from openfanta.core import valuation as v  # pyright: ignore[reportMissingImports]
 
 CAP_KEYS = ("market_cap", "reserve_cap", "role_cap", "opportunity_cap")
 
@@ -606,7 +607,7 @@ def test_web_payload_maxbid_breakdown():
 
 def wa_module_aux(pool, **over):
     """Auction di test senza la fixture build (per config/mix custom)."""
-    from live_auction import Auction  # pyright: ignore[reportMissingImports]
+    from openfanta.core.auction import Auction  # pyright: ignore[reportMissingImports]
 
     kwargs = {"teams": 3, "budget": 100, "slots": dict(DEFAULT_SLOTS)}
     kwargs.update(over)

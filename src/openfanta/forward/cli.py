@@ -2,12 +2,12 @@
 """CLI del simulatore della fase finale dell'asta Attaccanti (Monte Carlo lean).
 
 Uso:
-  uv run scripts/forward_simulator.py --snapshot data/forward_snapshot_a.json \
+  openfanta-forward --snapshot data/forward_snapshot_a.json \
       [--runs 10000] [--seed 42] [--player-order shuffle|by_value] \
       [--floor 2] [--json-out data/forward_report_attaccanti.json] \
       [--cache-dir data/forward_cache] [--no-cache] [--force] \
       [--deterministic-report] [--demo] [--values data/forward_values.json]
-  uv run scripts/forward_simulator.py snapshot --csv data/listone.csv \
+  openfanta-forward snapshot --csv data/listone.csv \
       --squadre 8 --budget 500 [--sales "DIMARCO 300 IO, PAZ N. 120 T1"] \
       --out data/forward_snapshot_a.json
 
@@ -30,13 +30,15 @@ import os
 import sys
 import tempfile
 from datetime import datetime, timezone
+from pathlib import Path
 
-from forward_agg import report, snapshot_key
-from forward_bidding import BidConfig
-from forward_sim import simulate
-from forward_state import snapshot_from_auction, validate_snapshot
+from openfanta.forward.agg import report, snapshot_key
+from openfanta.forward.bidding import BidConfig
+from openfanta.forward.sim import simulate
+from openfanta.forward.state import snapshot_from_auction, validate_snapshot
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+REPO_ROOT = Path(__file__).resolve().parents[3]
+BASE_DIR = str(REPO_ROOT)
 DEFAULT_CSV = os.path.join(BASE_DIR, "data", "listone.csv")
 DEFAULT_SNAPSHOT_OUT = os.path.join(BASE_DIR, "data", "forward_snapshot_a.json")
 DEFAULT_JSON_OUT = os.path.join(BASE_DIR, "data", "forward_report_attaccanti.json")
@@ -139,7 +141,7 @@ def _run_simulation(snapshot: dict, cfg: BidConfig) -> dict:
 
 # ------------------------------------------------------------- demo
 def _demo_snapshot() -> dict:
-    from live_auction import Auction, load_players  # sola lettura
+    from openfanta.core.auction import Auction, load_players  # sola lettura
 
     players = load_players(DEFAULT_CSV)
     auction = Auction(players, teams=8, budget=500)
@@ -190,7 +192,7 @@ def _parse_sales(sales: str | None) -> list[tuple[str, int, str]]:
 
 
 def _cmd_snapshot(args: argparse.Namespace) -> int:
-    from live_auction import Auction, load_players  # sola lettura
+    from openfanta.core.auction import Auction, load_players  # sola lettura
 
     players = load_players(args.csv)
     auction = Auction(players, teams=args.squadre, budget=args.budget)

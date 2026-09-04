@@ -13,7 +13,8 @@ import copy
 import random
 
 import pytest  # pyright: ignore[reportMissingImports]
-from live_auction import Auction  # pyright: ignore[reportMissingImports]
+
+from openfanta.core.auction import Auction  # pyright: ignore[reportMissingImports]
 
 ROLE_ORDER = ["P", "D", "C", "A"]
 

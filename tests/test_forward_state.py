@@ -8,14 +8,11 @@ giocatori sintetici (schema WP3) e non dipende da conftest.
 from __future__ import annotations
 
 import math
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 import pytest  # pyright: ignore[reportMissingImports]
-from forward_bidding import BidConfig  # pyright: ignore[reportMissingImports]
-from forward_state import (  # pyright: ignore[reportMissingImports]
+
+from openfanta.forward.bidding import BidConfig  # pyright: ignore[reportMissingImports]
+from openfanta.forward.state import (  # pyright: ignore[reportMissingImports]
     ForwardState,
     InsufficientBudgetError,
     InvalidPurchaseError,
@@ -259,7 +256,9 @@ def _engine_module():
     agenti in corso, es. ``valuation`` non ancora creato) i test engine vengono
     saltati, non falliti: la suite forward resta indipendente dal WIP altrui."""
     try:
-        from live_auction import Auction  # pyright: ignore[reportMissingImports]
+        from openfanta.core.auction import (
+            Auction,  # pyright: ignore[reportMissingImports]
+        )
     except ImportError as e:
         pytest.skip(f"motore live non importabile (WIP altri WP): {e}")
     return Auction

@@ -45,10 +45,11 @@ import threading
 from datetime import datetime, timezone
 from typing import Any
 
-# Nessun ciclo: live_auction non importa auction_store; qui le eccezioni di
-# dominio servono a contestualizzare gli errori di replay.
-from live_auction import ROLE_ORDER, AuctionError, compute_pid
 from typing_extensions import Self
+
+# Nessun ciclo: openfanta.core.auction non importa openfanta.core.store; qui le
+# eccezioni di dominio servono a contestualizzare gli errori di replay.
+from openfanta.core.auction import ROLE_ORDER, AuctionError, compute_pid
 
 SCHEMA_VERSION = 1
 EVENT_TYPES = ("league_configured", "sold", "unsold", "revoke")

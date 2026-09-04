@@ -25,7 +25,7 @@ import random
 from dataclasses import dataclass, field
 from typing import Any
 
-from forward_state import ForwardState, PlayerView, TeamView
+from openfanta.forward.state import ForwardState, PlayerView, TeamView
 
 
 # ---------------------------------------------------------------- configurazione

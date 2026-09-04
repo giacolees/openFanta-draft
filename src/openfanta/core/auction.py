@@ -3,7 +3,7 @@
 Asta live — Fantacalcio Stagione 2026/27 (Listone Fantaculo).
 
 Prezzo d'asta dinamico basato sul Listone Fantaculo (data/listone.csv, generato da
-scripts/import_listone.py), con valutazione dell'inflazione in tempo reale:
+openfanta.ingest.listone), con valutazione dell'inflazione in tempo reale:
 
 1. Valore base     — il PFC (prezzo suggerito Fantaculo, punto medio del range). Il range
                      resta come riferimento: dentro il range si e' "in acque tranquille".
@@ -33,9 +33,9 @@ scripts/import_listone.py), con valutazione dell'inflazione in tempo reale:
                      con tetto dato dal budget reale della propria squadra.
 
 Uso:
-  uv run scripts/live_auction.py                        # sessione live interattiva
-  uv run scripts/live_auction.py --prezzo "Dimarco"     # valutazione singola
-  uv run scripts/live_auction.py --demo                 # simulazione dimostrativa
+  openfanta-live                        # sessione live interattiva
+  openfanta-live --prezzo "Dimarco"     # valutazione singola
+  openfanta-live --demo                 # simulazione dimostrativa
 """
 
 import argparse
@@ -46,14 +46,10 @@ import os
 import shlex
 import sys
 from collections import defaultdict
+from pathlib import Path
 from typing import Any
 
-from import_listone import (
-    compute_pid,
-    is_pid,
-    parse_range,
-)
-from league_config import (
+from openfanta.core.config import (
     DEFAULTS,
     ROLE_LABEL,
     ROLE_ORDER,
@@ -62,7 +58,7 @@ from league_config import (
     normalize,
     validate,
 )
-from mantra import (  # pyright: ignore[reportMissingImports]
+from openfanta.core.mantra import (  # pyright: ignore[reportMissingImports]
     compatible_positions,
     has_explicit_roles,
     player_roles,
@@ -71,14 +67,20 @@ from mantra import (  # pyright: ignore[reportMissingImports]
     roster_spots_left,
     same_job,
 )
-from valuation import (
+from openfanta.core.valuation import (
     max_bid_breakdown,
     scarcity_breakdown,
     valuation_contract,
 )
+from openfanta.ingest.listone import (
+    compute_pid,
+    is_pid,
+    parse_range,
+)
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_CSV = os.path.join(BASE_DIR, "data", "listone.csv")
+REPO_ROOT = Path(__file__).resolve().parents[3]
+BASE_DIR = str(REPO_ROOT)
+DEFAULT_CSV = str(REPO_ROOT / "data" / "listone.csv")
 
 ROLE_SING = {
     "P": "Portiere",
@@ -747,7 +749,7 @@ class Auction:
         ``eval_before`` (opzionale, adattatore WP4) e' la valutazione del
         giocatore PRIMA della vendita: ignorata qui (e' un dato di evento che
         ``TrendAuction._record`` usa per il premio vs modello). Il replay
-        dell'event-log (scripts/auction_store.apply_event) la passa in modo
+        dell'event-log (openfanta.core.store.apply_event) la passa in modo
         uniforme anche a questo costruttore puro.
         """
         team = self._validate_sale(p, price, team)
@@ -1462,7 +1464,7 @@ def run_demo(auction):
         print("    " + auction.format_eval(p).replace("\n", "\n    "))
 
     print("\nDemo conclusa: stesso PFC, prezzo live diverso per inflazione e scarsità.")
-    print("Avvia la sessione reale con: uv run scripts/live_auction.py")
+    print("Avvia la sessione reale con: openfanta-live")
 
 
 def main():

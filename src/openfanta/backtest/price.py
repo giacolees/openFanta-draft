@@ -4,7 +4,7 @@
 Ripete lo storico delle vendite **in ordine** e, per ogni vendita, predice il
 prezzo PRIMA di applicarla: nessun evento futuro (mai la vendita stessa, mai
 quelle successive) e' usato nella predizione. Al termine confronta i modelli
-e valuta il gate di qualita' (``scripts/gates.py``).
+e valuta il gate di qualita' (``openfanta.core.gates``).
 
 Modelli confrontati (le baseline sono SEMPRE presenti nel report):
 
@@ -59,11 +59,9 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-import calibration
-import gates
-import valuation
-from league_config import norm, normalize, validate
-from live_auction import Auction, AuctionError, ConfigError, load_players
+from openfanta.core import calibration, gates, valuation
+from openfanta.core.auction import Auction, AuctionError, ConfigError, load_players
+from openfanta.core.config import norm, normalize, validate
 
 DEFAULT_LISTONE = "data/listone.csv"
 DEFAULT_OUT_DIR = "data"

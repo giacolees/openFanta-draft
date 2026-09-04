@@ -20,7 +20,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from typing import Any
 
-from forward_bidding import (
+from openfanta.forward.bidding import (
     BidConfig,
     conduct_round,
     eligible,
@@ -30,7 +30,7 @@ from forward_bidding import (
     reserve_needed,
     team_infeasible,
 )
-from forward_state import (
+from openfanta.forward.state import (
     ForwardState,
     PlayerView,
     TeamView,

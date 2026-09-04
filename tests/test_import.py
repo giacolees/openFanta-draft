@@ -1,4 +1,4 @@
-"""Test dell'import del listone (WP3 — scripts/import_listone.py).
+"""Test dell'import del listone (WP3 — openfanta.ingest.listone).
 
 Coprono, su un workbook sintetico generato con openpyxl in ``tmp_path``:
 - happy path: colonne nuove (pid, pfc_lo/hi, pma_lo/hi, unc_pfc), meta sidecar
@@ -22,24 +22,39 @@ Coprono, su un workbook sintetico generato con openpyxl in ``tmp_path``:
 
 import csv
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
 
-import import_listone as il  # pyright: ignore[reportMissingImports]
 import openpyxl  # pyright: ignore[reportMissingImports]
 import pytest  # pyright: ignore[reportMissingImports]
-import web_auction as wa  # pyright: ignore[reportMissingImports]
 from conftest import make_player  # pyright: ignore[reportMissingImports]
-from import_listone import compute_pid  # pyright: ignore[reportMissingImports]
-from live_auction import (  # pyright: ignore[reportMissingImports]
+
+import openfanta.ingest.listone as il  # pyright: ignore[reportMissingImports]
+import openfanta.web.app as wa  # pyright: ignore[reportMissingImports]
+from openfanta.core.auction import (  # pyright: ignore[reportMissingImports]
     AmbiguousName,
     Auction,
     ConfigError,
     load_players,
 )
+from openfanta.ingest.listone import (
+    compute_pid,  # pyright: ignore[reportMissingImports]
+)
 
 ROOT = Path(__file__).resolve().parent.parent
+SRC = ROOT / "src"
+LISTONE_CLI = SRC / "openfanta" / "ingest" / "listone.py"
+
+
+def _cli_env() -> dict[str, str]:
+    """Env per il CLI in subprocess: ``src/`` in PYTHONPATH cosi' gli import
+    assoluti ``openfanta.*`` si risolvono anche senza package installato."""
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(SRC) + os.pathsep + env.get("PYTHONPATH", "")
+    return env
+
 
 # intestazioni reali del foglio ALL (sottoinsieme minimo per l'import)
 HEADER = [
@@ -521,7 +536,7 @@ def test_cli_exit_code_2_su_file_invalido(tmp_path):
     proc = subprocess.run(
         [
             sys.executable,
-            str(ROOT / "scripts" / "import_listone.py"),
+            str(LISTONE_CLI),
             "--file",
             str(tmp_path / "bad.xlsx"),
             "--out",
@@ -534,6 +549,7 @@ def test_cli_exit_code_2_su_file_invalido(tmp_path):
         capture_output=True,
         text=True,
         cwd=str(ROOT),
+        env=_cli_env(),
         check=False,
     )
     assert proc.returncode == 2  # errore bloccante
@@ -549,7 +565,7 @@ def test_cli_exit_code_0_su_file_valido(tmp_path):
     proc = subprocess.run(
         [
             sys.executable,
-            str(ROOT / "scripts" / "import_listone.py"),
+            str(LISTONE_CLI),
             "--file",
             str(tmp_path / "ok.xlsx"),
             "--out",
@@ -562,6 +578,7 @@ def test_cli_exit_code_0_su_file_valido(tmp_path):
         capture_output=True,
         text=True,
         cwd=str(ROOT),
+        env=_cli_env(),
         check=False,
     )
     assert proc.returncode == 0

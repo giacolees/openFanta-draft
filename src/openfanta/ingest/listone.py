@@ -44,9 +44,9 @@ Colonne chiave esportate:
 - Sempre scritto il report JSON ``data/import_report_<ts>.json``.
 
 Uso:
-  uv run scripts/import_listone.py                 # ultimo listone in data/
-  uv run scripts/import_listone.py --file PATH     # file specifico
-  uv run scripts/import_listone.py --out PATH      # CSV di destinazione
+  openfanta-import-listone                 # ultimo listone in data/
+  openfanta-import-listone --file PATH     # file specifico
+  openfanta-import-listone --out PATH      # CSV di destinazione
 """
 
 import argparse
@@ -58,15 +58,18 @@ import re
 import tempfile
 from collections import defaultdict
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import openpyxl
-from league_config import ROLE_ORDER, norm
-from mantra import parse_roles  # pyright: ignore[reportMissingImports]
 from openpyxl.worksheet.worksheet import Worksheet
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_DIR = os.path.join(BASE_DIR, "data")
+from openfanta.core.config import ROLE_ORDER, norm
+from openfanta.core.mantra import parse_roles  # pyright: ignore[reportMissingImports]
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+BASE_DIR = str(REPO_ROOT)
+DATA_DIR = str(REPO_ROOT / "data")
 PATTERN = os.path.join(DATA_DIR, "Listone_Fantaculo_*.xlsx")
 DEFAULT_OUT = os.path.join(DATA_DIR, "listone.csv")
 META_PATH = os.path.join(DATA_DIR, "listone_meta.json")

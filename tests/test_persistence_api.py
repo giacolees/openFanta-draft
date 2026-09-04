@@ -1,4 +1,4 @@
-"""Test del ciclo di vita della persistenza via API (scripts/web_auction.py) — WP4.
+"""Test del ciclo di vita della persistenza via API (openfanta.web.app) — WP4.
 
 Con store attivo (fixture ``wa.store``, DB temporaneo):
 - vendita/invenduto appendono l'evento e il motore resta allineato al log;
@@ -16,14 +16,17 @@ Con store attivo (fixture ``wa.store``, DB temporaneo):
 import json
 
 import pytest  # pyright: ignore[reportMissingImports]
-import web_auction as wa  # pyright: ignore[reportMissingImports]
-from auction_store import (  # pyright: ignore[reportMissingImports]
+from conftest import make_player  # pyright: ignore[reportMissingImports]
+from fastapi.responses import JSONResponse  # pyright: ignore[reportMissingImports]
+
+import openfanta.web.app as wa  # pyright: ignore[reportMissingImports]
+from openfanta.core.store import (  # pyright: ignore[reportMissingImports]
     AuctionStore,
     StoreError,
 )
-from conftest import make_player  # pyright: ignore[reportMissingImports]
-from fastapi.responses import JSONResponse  # pyright: ignore[reportMissingImports]
-from import_listone import compute_pid  # pyright: ignore[reportMissingImports]
+from openfanta.ingest.listone import (
+    compute_pid,  # pyright: ignore[reportMissingImports]
+)
 
 DEFAULT_CFG = {
     "teams": 3,

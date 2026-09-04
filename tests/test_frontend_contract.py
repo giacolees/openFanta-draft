@@ -9,7 +9,7 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-HTML = ROOT / "scripts" / "static" / "index.html"
+HTML = ROOT / "src" / "openfanta" / "web" / "static" / "index.html"
 
 
 def source() -> str:

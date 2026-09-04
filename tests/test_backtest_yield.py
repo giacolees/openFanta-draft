@@ -7,8 +7,9 @@ PFC/PMA dichiarate, proxy expfm etichettato con gate false, stessa stagione
 
 import json
 
-import backtest_yield as bty  # pyright: ignore[reportMissingImports]
 import pytest  # pyright: ignore[reportMissingImports]
+
+import openfanta.backtest.yield_report as bty  # pyright: ignore[reportMissingImports]
 
 SALES_HEADER = "pid,nome,ruolo,price,team,seq,ts,season\n"
 LISTONE_HEADER = "pid,nome,squadra,ruolo,pfc,pma,slot,tit,expfm,fascia,status\n"
@@ -17,8 +18,10 @@ SEASON_PREV = "2025-26"
 
 
 def pid_of(nome, ruolo):
-    from league_config import norm  # pyright: ignore[reportMissingImports]
-    from live_auction import compute_pid  # pyright: ignore[reportMissingImports]
+    from openfanta.core.auction import (
+        compute_pid,  # pyright: ignore[reportMissingImports]
+    )
+    from openfanta.core.config import norm  # pyright: ignore[reportMissingImports]
 
     return compute_pid(norm(nome), ruolo)
 

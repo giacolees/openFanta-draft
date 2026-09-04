@@ -7,7 +7,7 @@ Gestione dipendenze con **uv** (ambiente in `.venv`, versioni bloccate in `uv.lo
 
 ## 0. Import del listone
 
-`uv run scripts/import_listone.py`
+`openfanta-import-listone`
 
 Legge il file `Listone_Fantaculo_*.xlsx` **più recente** in `data/` (la data è nel nome:
 il file cambia ogni giorno) e produce il CSV canonico `data/listone.csv` con:
@@ -57,7 +57,7 @@ Le colonne nuove del CSV, oltre al `pid`:
 
 ## 1. Asta live da terminale
 
-`uv run scripts/live_auction.py`
+`openfanta-live`
 
 Prezzo dinamico = **PFC × inflazione × scarsità**, con tetto dato dal budget reale
 della propria squadra:
@@ -81,7 +81,7 @@ Alternative: `--prezzo "Nome"` per una valutazione singola, `--demo` per la simu
 
 ## 2. GUI web con doppia analisi di tendenza
 
-`uv run scripts/web_auction.py` → <http://127.0.0.1:8000>
+`openfanta-web` → <http://127.0.0.1:8000>
 
 - inserimento rapido delle offerte da browser (ricerca, prezzo precompilato, Invio = venduto)
 - scheda giocatore con PFC/PMA e range, delta PFC-PMA (sotto/sovra prezzato vs Italia),
@@ -116,7 +116,7 @@ vecchia modalita' in-memory (stato perso alla chiusura). Vedi sezione "Persisten
 ### Simulatore forward della fase Attaccanti (API)
 
 Il simulatore Monte Carlo della fase finale dell'asta (**solo modalità Classic**,
-solo ruolo `A`; moduli `scripts/forward_*.py`, vedi `forward-simulator.md`) e' integrato
+solo ruolo `A`; moduli `src/openfanta/forward/`, vedi `forward-simulator.md`) e' integrato
 nell'API live come endpoint **read-only** sull'asta corrente: nessuna mutazione
 dello stato, nessun impatto su prezzi e suggerimenti.
 
@@ -161,7 +161,7 @@ deterministico ricostruisce lo stesso `state_hash`.
 
 ## Configurazione lega (contratto unico CLI/web/dominio)
 
-La configurazione della lega ha **un solo schema** (`scripts/league_config.py`),
+La configurazione della lega ha **un solo schema** (`src/openfanta/core/config.py`),
 condiviso da CLI (`config`), API (`GET/POST /api/config`) e dominio
 (`Auction.validate_config`). Niente logica duplicata: chi applica una
 configurazione *normalizza* (`normalize`), *valida strutturalmente* (`validate`)
@@ -192,7 +192,7 @@ valore per la propria rosa e max bid usano questa compatibilità tattica. I ruol
 mancanti non vengono inventati: il giocatore resta visibile, ma non è acquistabile
 in Mantra. `data/mantra_roles.csv` integra il listone corrente senza cambiare i PID.
 Si aggiorna dal file Quotazioni ufficiale con
-`uv run scripts/import_mantra_roles.py data/Quotazioni_Fantacalcio_....xlsx`.
+`openfanta-import-mantra-roles data/Quotazioni_Fantacalcio_....xlsx`.
 
 Errori **strutturali** (bloccanti): tipi/limiti delle chiavi, `formation ≤ slots`,
 nomi duplicati, `io` assente. In Classic, gli errori di **fattibilità** richiedono
@@ -234,7 +234,7 @@ verita': e' ricostruito per **replay deterministico** del log.
 
 ### Residenti e ciclo di vita
 
-- Avvio: `uv run scripts/web_auction.py --store data/asta_stagione_2026_27.db`
+- Avvio: `openfanta-web --store data/asta_stagione_2026_27.db`
   (default). Se il DB e' vuoto viene creato il primo evento `league_configured`
   con la config CLI (`--squadre/--budget/--io`); **se il DB esiste il server
   riparte dallo stato salvato** (resume): vendite, invenduti, budget e rosa
@@ -277,7 +277,7 @@ eventi revocati (superseded). In-memory l'undo resta snapshot-based.
 
 ### CLI dello store (backup/import da file)
 
-`scripts/auction_store.py` espone la stessa logica per script: `AuctionStore`
+`src/openfanta/core/store.py` espone la stessa logica per script: `AuctionStore`
 con `append(type, payload, supersedes=None)`, `append_batch(...)` (transazione
 unica, es. restate), `read_all()`, `latest()`, `last_action()`, `backup(path)`
 (scrittura **atomica** temp+rename), `import_events(path, mode="append"|
@@ -294,10 +294,9 @@ prezzo/slot tornano disponibili alla squadra.
 
 ```python
 uv run python - <<'EOF'
-import sys; sys.path.insert(0, 'scripts')
-from auction_store import AuctionStore, replay_engine
-from live_auction import load_players
-from web_auction import TrendAuction
+from openfanta.core.store import AuctionStore, replay_engine
+from openfanta.core.auction import load_players
+from openfanta.web.app import TrendAuction
 s = AuctionStore('data/asta_di_test.db')
 print(replay_engine(s, load_players('data/listone.csv'), TrendAuction).status())
 s.close()
@@ -376,7 +375,7 @@ in ogni stato; l'eventuale `maxbid < suggested` è segnalato in CLI/API.
 
 ### Contratto in codice
 
-- `scripts/valuation.py` → `valuation_contract(auction, p, team)` (API pura,
+- `src/openfanta/core/valuation.py` → `valuation_contract(auction, p, team)` (API pura,
   senza ricorsione su `evaluate`).
 - `Auction.evaluate` espone i tre blocchi **additivi** (`market`, `fantasy`,
   `my_team`) mantenendo tutte le chiavi legacy (inclusi `suggested`/`maxbid`
@@ -392,8 +391,8 @@ non promuovono alcun modello: producono solo `gate_recommendation` con
 `use_calibration_in_price = false`; l'attivazione richiede una decisione
 esplicita futura (ADR 0002). **Nessuno storico d'asta esiste ancora nel repo**:
 comandi e schemi sono pronti per quando i dati ci saranno, non viene inventata
-cronaca. I file di supporto: `scripts/gates.py` (soglie e verdict puri),
-`scripts/backtest_auction.py`, `scripts/backtest_yield.py`.
+cronaca. I file di supporto: `src/openfanta/core/gates.py` (soglie e verdict puri),
+`src/openfanta/backtest/price.py`, `src/openfanta/backtest/yield_report.py`.
 
 ### Gate qualità (default conservativi, configurabili via CLI)
 
@@ -406,10 +405,10 @@ Il gate non passa mai con metriche NaN/assenti, campione insufficiente,
 leakage, target proxy o stessa stagione (rendimento). Ogni no-pass elenca i
 motivi espliciti.
 
-### `scripts/backtest_auction.py` — replay prequenziale del prezzo
+### `openfanta-backtest-price` — replay prequenziale del prezzo
 
 ```bash
-uv run python scripts/backtest_auction.py \
+openfanta-backtest-price \
     --sales data/asta_storica.csv \
     --listone data/listone.csv --teams 8 --budget 500 \
     --out data/backtest
@@ -435,10 +434,10 @@ fase dell'asta.
 - Exit `0` = report scritti (anche con gate no-pass); exit `2` = input
   mancante/invalido o nessuna vendita (nessun artefatto scritto).
 
-### `scripts/backtest_yield.py` — rendimento stagionale separato
+### `openfanta-backtest-yield` — rendimento stagionale separato
 
 ```bash
-uv run python scripts/backtest_yield.py \
+openfanta-backtest-yield \
     --sales data/asta_storica.csv \
     --outcomes data/fm_realizzate_2026_27.csv \
     --listone data/listone.csv --out data/backtest
@@ -460,5 +459,5 @@ stessa scala fantamedia). Baseline dichiarate: PFC e PMA.
 
 ## Nota
 
-`scripts/build_player_ratings.py` genera un rating alternativo dal file quotazioni
+`tools/build_player_ratings.py` genera un rating alternativo dal file quotazioni
 (`Quotazioni_Fantacalcio_*.xlsx`); non è più usato dalla pipeline dell'asta.

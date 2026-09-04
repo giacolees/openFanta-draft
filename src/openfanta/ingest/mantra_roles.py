@@ -12,7 +12,8 @@ from pathlib import Path
 from typing import Any, cast
 
 import openpyxl
-from mantra import parse_roles  # pyright: ignore[reportMissingImports]
+
+from openfanta.core.mantra import parse_roles  # pyright: ignore[reportMissingImports]
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_OUT = BASE_DIR / "data" / "mantra_roles.csv"

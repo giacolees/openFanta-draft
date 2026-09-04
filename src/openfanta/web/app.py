@@ -2,7 +2,7 @@
 """
 GUI FastAPI per l'asta live — Fantacalcio Stagione 2026/27 (Listone Fantaculo).
 
-Riusa il motore di scripts/live_auction.py (PFC come valore base, inflazione, scarsità
+Riusa il motore di openfanta.core.auction (PFC come valore base, inflazione, scarsità
 su slot consigliati, indici TIX/FIX, copertura ruolo) e aggiunge:
 - inserimento rapido delle offerte da browser;
 - DUE analizzatori di tendenza:
@@ -12,9 +12,9 @@ su slot consigliati, indici TIX/FIX, copertura ruolo) e aggiunge:
   verdetto IN RIALZO / STABILI / IN CALO, globale e per ruolo.
 
 Avvio:
-  uv run scripts/import_listone.py        # aggiorna data/listone.csv dall'ultimo xlsx
-  uv run scripts/web_auction.py           # http://127.0.0.1:8000
-  uv run scripts/web_auction.py --port 8080 --squadre 8 --budget 500
+  openfanta-import-listone        # aggiorna data/listone.csv dall'ultimo xlsx
+  openfanta-web                   # http://127.0.0.1:8000
+  openfanta-web --port 8080 --squadre 8 --budget 500
 
 API: GET /api/state | GET /api/players?q= | GET /api/eval?key=&team= |
      POST /api/sold | POST /api/unsold | POST /api/undo | GET /api/trend |
@@ -29,45 +29,24 @@ import hashlib
 import io
 import json
 import math
-import os
 import random
 import sys
 import threading
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
-# Moduli fratelli in scripts/: risolti perche' 1) esecuzione come script
-# (sys.path[0] = scripts/) oppure 2) import dai test (conftest aggiunge scripts/
-# a sys.path prima di importare). Nessuna istruzione prima degli import (E402).
-import calibration
-import league_config
-
-# WP4: store event-sourced. ``auction_store`` non importa web_auction (nessun
-# ciclo): qui riusiamo replay/active_events/StoreError per la persistenza.
-from auction_store import (
-    AuctionStore,
-    StoreError,
-    active_events,
-    replay_engine,
-    replay_events,
-)
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, JSONResponse, Response
-from forward_agg import report as forward_report
-from forward_agg import snapshot_key as forward_snapshot_key
-from forward_bidding import BidConfig
-from forward_sim import simulate as forward_simulate
-from forward_state import (
-    SCHEMA_VERSION as FORWARD_SCHEMA_VERSION,
-)
-from forward_state import (
-    snapshot_from_auction,
-)
-from forward_state import (
-    validate_snapshot as forward_validate_snapshot,
-)
-from live_auction import (
+from pydantic import BaseModel, Field
+
+# Import assoluti dal package installato (``pythonpath = ["src"]`` per i test,
+# package installato per le entry point console). Nessuna istruzione prima
+# degli import (E402).
+from openfanta.core import calibration
+from openfanta.core import config as league_config
+from openfanta.core.auction import (
     DEFAULTS,
     ROLE_LABEL,
     ROLE_ORDER,
@@ -81,7 +60,7 @@ from live_auction import (
     load_players,
     norm,
 )
-from mantra import (  # pyright: ignore[reportMissingImports]
+from openfanta.core.mantra import (  # pyright: ignore[reportMissingImports]
     MANTRA_FORMATIONS,
     MANTRA_ROLE_LABEL,
     MANTRA_ROLE_ORDER,
@@ -90,13 +69,36 @@ from mantra import (  # pyright: ignore[reportMissingImports]
     player_roles,
     roles_text,
 )
-from pydantic import BaseModel, Field
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(BASE_DIR, "scripts"))  # fallback difensivo
-DEFAULT_CSV = f"{BASE_DIR}/data/listone.csv"
-INDEX_HTML = os.path.join(BASE_DIR, "scripts", "static", "index.html")
-DEFAULT_STORE_DB = f"{BASE_DIR}/data/asta_stagione_2026_27.db"
+# WP4: store event-sourced. ``openfanta.core.store`` non importa
+# ``openfanta.web.app`` (nessun ciclo): qui riusiamo
+# replay/active_events/StoreError per la persistenza.
+from openfanta.core.store import (
+    AuctionStore,
+    StoreError,
+    active_events,
+    replay_engine,
+    replay_events,
+)
+from openfanta.forward.agg import report as forward_report
+from openfanta.forward.agg import snapshot_key as forward_snapshot_key
+from openfanta.forward.bidding import BidConfig
+from openfanta.forward.sim import simulate as forward_simulate
+from openfanta.forward.state import (
+    SCHEMA_VERSION as FORWARD_SCHEMA_VERSION,
+)
+from openfanta.forward.state import (
+    snapshot_from_auction,
+)
+from openfanta.forward.state import (
+    validate_snapshot as forward_validate_snapshot,
+)
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+BASE_DIR = str(REPO_ROOT)
+DEFAULT_CSV = str(REPO_ROOT / "data" / "listone.csv")
+INDEX_HTML = str(Path(__file__).resolve().parent / "static" / "index.html")
+DEFAULT_STORE_DB = str(REPO_ROOT / "data" / "asta_stagione_2026_27.db")
 
 VERDICT_IT = {
     "rise": "IN RIALZO ↗",

@@ -20,7 +20,7 @@ Output:
 - data/compare_models_forward.csv
 - report a console
 
-Uso:  python3 scripts/compare_models_forward.py
+Uso:  python3 tools/compare_models_forward.py
 """
 
 import csv

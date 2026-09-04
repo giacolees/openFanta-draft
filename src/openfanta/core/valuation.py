@@ -1,9 +1,10 @@
 """Valutazione per la singola squadra: scarsità (WP5) e maxbid a 4 cap (WP6).
 
-Modulo di valutazione SEPARATO dal motore (``live_auction``): funzioni pure
-che prendono un'istanza ``Auction`` e restituiscono misure interpretabili.
-Nessun import circolare: ``valuation`` importa solo ``league_config`` (mai
-``live_auction``, che invece importa ``valuation``).
+Modulo di valutazione SEPARATO dal motore (``openfanta.core.auction``): funzioni
+pure che prendono un'istanza ``Auction`` e restituiscono misure interpretabili.
+Nessun import circolare: ``openfanta.core.valuation`` importa solo
+``openfanta.core.config`` (mai ``openfanta.core.auction``, che invece importa
+``openfanta.core.valuation``).
 
 La scarsità lega-wide (``Auction.scarcity``) resta invariata e continua ad
 alimentare ``suggested``. Questo modulo aggiunge il punto di vista della
@@ -67,8 +68,8 @@ DISGIUNTI senza indice unico:
 
 from math import isfinite
 
-from league_config import ROLE_ORDER
-from mantra import (  # pyright: ignore[reportMissingImports]
+from openfanta.core.config import ROLE_ORDER
+from openfanta.core.mantra import (  # pyright: ignore[reportMissingImports]
     player_roles,
     roster_spots_left,
     tactical_impact,

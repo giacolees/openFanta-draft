@@ -2,7 +2,7 @@
 
 > **Documento di specifica tecnica** (non implementazione). Riferimento: `plan.md`
 > (roadmap WP1–WP12). Questo work package **non è nel piano**: è un nuovo componente
-> a fianco del motore live (`scripts/live_auction.py`), progettato per essere
+> a fianco del motore live (`src/openfanta/core/auction.py`), progettato per essere
 > implementato da **un singolo agente** con **soli file nuovi** (zero edit a file
 > esistenti) e per essere **rapido da rilanciare dopo ogni acquisto live**.
 >
@@ -54,11 +54,11 @@ al motore o al frontend.
 
 | File | Ruolo | Tocca file esistenti? |
 | --- | --- | --- |
-| `scripts/forward_state.py` | Stato immutabile + transizioni + snapshot da engine (duck-typed, read-only) + invarianti | No |
-| `scripts/forward_bidding.py` | Prezzo atteso adattato, max bid, riserva, WTP, round d'asta, tie/no-bid | No |
-| `scripts/forward_sim.py` | Driver Monte Carlo (`simulate`) + `SimResult` raw | No |
-| `scripts/forward_agg.py` | `report(SimResult, snapshot, cfg) -> dict` (JSON schema v1) | No |
-| `scripts/forward_simulator.py` | CLI (`--snapshot`, `--runs`, `--seed`, `--json-out`, cache) | No |
+| `src/openfanta/forward/state.py` | Stato immutabile + transizioni + snapshot da engine (duck-typed, read-only) + invarianti | No |
+| `src/openfanta/forward/bidding.py` | Prezzo atteso adattato, max bid, riserva, WTP, round d'asta, tie/no-bid | No |
+| `src/openfanta/forward/sim.py` | Driver Monte Carlo (`simulate`) + `SimResult` raw | No |
+| `src/openfanta/forward/agg.py` | `report(SimResult, snapshot, cfg) -> dict` (JSON schema v1) | No |
+| `src/openfanta/forward/cli.py` | CLI (`--snapshot`, `--runs`, `--seed`, `--json-out`, cache) | No |
 | `tests/fixtures/forward_snapshot_a.json` | Snapshot sintetico piccolo e stabile | No |
 | `tests/test_forward_state.py` | Transizioni, immutabilità, invarianti | No |
 | `tests/test_forward_bidding.py` | Formule bounded, riserva, tie, no-bid | No |
@@ -294,7 +294,7 @@ def report(result: SimResult, snapshot: dict, cfg: BidConfig,
 ### 3.5 CLI `forward_simulator.py`
 
 ```text
-uv run scripts/forward_simulator.py --snapshot data/forward_snapshot_a.json \
+openfanta-forward --snapshot data/forward_snapshot_a.json \
     [--runs 10000] [--seed 42] [--player-order shuffle|by_value] \
     [--floor 2] [--json-out data/forward_report_attaccanti.json] \
     [--cache-dir data/forward_cache] [--no-cache] [--force] \
@@ -309,7 +309,7 @@ uv run scripts/forward_simulator.py --snapshot data/forward_snapshot_a.json \
 - Un subcomando `snapshot` per esportare lo snapshot da un'asta live:
 
 ```text
-uv run scripts/forward_simulator.py snapshot --csv data/listone.csv --squadre 8 --budget 500 \
+openfanta-forward snapshot --csv data/listone.csv --squadre 8 --budget 500 \
     [--sales "DIMARCO 300 IO, PAZ N. 120 T1, ..."] --out data/forward_snapshot_a.json
 ```
 
@@ -823,7 +823,7 @@ WP5), `reserve_needed` (WP6), `max_bid` (WP6), `interest_score`/`pass_prob`
 
 - Snapshot dal **listone reale** (`load_players(data/listone.csv)`, 8 squadre,
   vendite deterministiche per arrivare alla "fase finale", `snapshot_from_auction`)
-  → `uv run python scripts/forward_simulator.py --snapshot <tmp> --runs 10000
+  → `openfanta-forward --snapshot <tmp> --runs 10000
   --seed 42 --json-out <tmp2>` → exit 0, JSON valido, chiavi dello schema v1,
   **wall time < 45 s** (bound CI, con margine; atteso < 15 s).
 - Determinismo end-to-end: due run con `--deterministic-report` → file
@@ -838,15 +838,15 @@ WP5), `reserve_needed` (WP6), `max_bid` (WP6), `interest_score`/`pass_prob`
 uv run pytest tests/test_forward_state.py tests/test_forward_bidding.py \
     tests/test_forward_sim.py tests/test_forward_agg.py tests/test_forward_properties.py -q
 
-uv run python scripts/forward_simulator.py --snapshot tests/fixtures/forward_snapshot_a.json \
+openfanta-forward --snapshot tests/fixtures/forward_snapshot_a.json \
     --runs 10000 --seed 42 --deterministic-report --json-out /tmp/forward_a.json
-uv run python scripts/forward_simulator.py --snapshot tests/fixtures/forward_snapshot_a.json \
+openfanta-forward --snapshot tests/fixtures/forward_snapshot_a.json \
     --runs 10000 --seed 42 --deterministic-report --json-out /tmp/forward_b.json
 cmp /tmp/forward_a.json /tmp/forward_b.json && echo OK          # byte-identici
 
 uv run pytest tests/test_forward_acceptance.py -q
-ruff check scripts/forward_*.py tests/test_forward_*.py
-pyright scripts/forward_*.py
+ruff check src/openfanta/forward tests/test_forward_*.py
+pyright src/openfanta/forward
 uv run pytest -q tests/test_forward_acceptance.py   # con lsp_diagnostics + lens_diagnostics mode=all prima di chiudere
 ```
 

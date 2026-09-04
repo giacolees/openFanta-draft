@@ -1,4 +1,4 @@
-"""Test dello schema configurazione lega condiviso (WP2: scripts/league_config.py).
+"""Test dello schema configurazione lega condiviso (WP2: openfanta.core.config).
 
 Coprono il contratto unico usato da dominio (Auction / validate_config), CLI
 (live_auction.config_overrides/config_errors) e web (ConfigBody, POST /api/config):
@@ -18,12 +18,15 @@ Coprono il contratto unico usato da dominio (Auction / validate_config), CLI
 
 import json
 
-import league_config  # pyright: ignore[reportMissingImports]
 import pytest  # pyright: ignore[reportMissingImports]
-import web_auction as wa  # pyright: ignore[reportMissingImports]
 from conftest import pid_of
 from fastapi.responses import JSONResponse  # pyright: ignore[reportMissingImports]
-from live_auction import (  # pyright: ignore[reportMissingImports]
+
+import openfanta.web.app as wa  # pyright: ignore[reportMissingImports]
+from openfanta.core import (
+    config as league_config,  # pyright: ignore[reportMissingImports]
+)
+from openfanta.core.auction import (  # pyright: ignore[reportMissingImports]
     Auction,
     ConfigError,
     config_errors,

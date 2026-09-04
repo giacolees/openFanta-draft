@@ -51,9 +51,7 @@ import os
 import sys
 from typing import Any
 
-import calibration
-import gates
-from backtest_auction import (
+from openfanta.backtest.price import (
     AuctionEvent,
     SalesError,
     check_duplicates,
@@ -61,8 +59,9 @@ from backtest_auction import (
     sort_sales,
     write_atomic,
 )
-from league_config import norm
-from live_auction import load_players
+from openfanta.core import calibration, gates
+from openfanta.core.auction import load_players
+from openfanta.core.config import norm
 
 DEFAULT_LISTONE = "data/listone.csv"
 DEFAULT_OUT_DIR = "data"
@@ -677,7 +676,7 @@ def team_names(args: argparse.Namespace) -> list[str]:
     "ALTRO" esplicito e le invarianti di budget restano rispettate."""
     if args.teams is None:
         return []
-    from league_config import normalize
+    from openfanta.core.config import normalize
 
     cfg = normalize({"teams": args.teams, "io": args.io or "IO"})
     return list(cfg["team_names"])

@@ -25,10 +25,11 @@ Scenario richiesti:
 import json
 
 import pytest  # pyright: ignore[reportMissingImports]
-import web_auction as wa  # pyright: ignore[reportMissingImports]
 from conftest import pid_of  # pyright: ignore[reportMissingImports]
 from fastapi.responses import JSONResponse  # pyright: ignore[reportMissingImports]
 from pydantic import ValidationError  # pyright: ignore[reportMissingImports]
+
+import openfanta.web.app as wa  # pyright: ignore[reportMissingImports]
 
 # Slot/formation FATTIBILI per il pool di test: 3 squadre x (1P+1D+1C+2A) = 15
 # slot coperti esattamente dai 15 giocatori del pool (shortfall = 0).
@@ -171,9 +172,7 @@ class TestForwardSnapshot:
     def test_snapshot_only_attackers_even_with_mixed_pool(self, forward_env):
         build_engine()  # pool motore = 15 giocatori (A+P+D+C)
         snap = wa.api_forward_snapshot()["snapshot"]
-        assert all(
-            wa.engine.players[pid]["ruolo"] == "A" for pid in snap["pool"]
-        )
+        assert all(wa.engine.players[pid]["ruolo"] == "A" for pid in snap["pool"])
 
 
 # ------------------------------------------------------------------ simulate
@@ -446,9 +445,7 @@ class TestForwardValues:
             )
         )
         assert env["values_source"] == "override"
-        entry = next(
-            p for p in env["result"]["per_player"] if p["pid"] == pid
-        )
+        entry = next(p for p in env["result"]["per_player"] if p["pid"] == pid)
         assert entry["model_value"]["value"] == 123.5
         assert entry["model_value"]["rank"] == 1
         # gli altri restano senza input
@@ -468,18 +465,10 @@ class TestForwardValues:
             wa.ForwardSimulateBody(runs=10, seed=7, team="T1", no_cache=True)
         )
         assert r_t1["simulate_params"]["team"] == "T1"
-        entry_io = next(
-            p for p in r_io["result"]["per_player"] if p["pid"] == pid
-        )
-        entry_t1 = next(
-            p for p in r_t1["result"]["per_player"] if p["pid"] == pid
-        )
-        tv_io = engine.evaluate(engine.players[pid], "IO")["my_team"][
-            "team_value"
-        ]
-        tv_t1 = engine.evaluate(engine.players[pid], "T1")["my_team"][
-            "team_value"
-        ]
+        entry_io = next(p for p in r_io["result"]["per_player"] if p["pid"] == pid)
+        entry_t1 = next(p for p in r_t1["result"]["per_player"] if p["pid"] == pid)
+        tv_io = engine.evaluate(engine.players[pid], "IO")["my_team"]["team_value"]
+        tv_t1 = engine.evaluate(engine.players[pid], "T1")["my_team"]["team_value"]
         assert entry_io["model_value"]["value"] == tv_io
         assert entry_t1["model_value"]["value"] == tv_t1
         assert tv_io != tv_t1  # la perspective cambia davvero il valore
