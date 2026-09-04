@@ -99,6 +99,79 @@ def test_frontend_exposes_wp10_endpoints_and_controls():
         assert control in text, control
 
 
+def test_frontend_has_five_accessible_workspaces_and_data_views():
+    text = source()
+    js = script()
+    for view in ("asta", "mercato", "rose", "analisi", "simulatore"):
+        assert f'id="tab-{view}"' in text
+        assert f'id="view-{view}"' in text
+        assert f'aria-controls="view-{view}"' in text
+        assert f'aria-labelledby="tab-{view}"' in text
+    for anchor in (
+        'role="tablist"',
+        'role="tabpanel"',
+        'id="market-search"',
+        'id="market-table"',
+        'id="market-status"',
+        'id="roster-team"',
+        'id="roster-role"',
+        'id="roster-table"',
+        'id="roster-summary"',
+        "/api/svincolati?",
+        "/api/rose?",
+    ):
+        assert anchor in text, anchor
+    for key in ("ArrowRight", "ArrowLeft", "Home", "End"):
+        assert key in js
+    assert "location.hash.slice(1)" in js
+    assert "history.pushState" in js
+    assert 'await activateView("asta")' in js
+    assert "await pick(pid, { focusPrice: false })" in js
+    assert '$("pc-name").focus();' in js
+    assert "data.count === 1" in js
+    assert '"font-size": 24' in js
+    assert "loadMarket" in js and "loadRosters" in js
+    # State-changing actions must not leave hidden workspace data stale.
+    assert 'if (activeView === "simulatore") await loadLatest();' in js
+    assert '$("roster-team").value = "";' in js
+    assert '$("roster-summary").replaceChildren();' in js
+    assert '$("roster-body").replaceChildren();' in js
+
+
+def test_frontend_allows_roster_purchase_deletion():
+    text = source()
+    js = script()
+    for anchor in (
+        '<th scope="col">Azioni</th>',
+        '"delete-player-btn"',
+        "deleteRosterPlayer(row, deleteButton)",
+        "Rimuovere ${row.player} dalla rosa ${row.team}?",
+        "/api/rose/${encodeURIComponent(row.pid)}",
+        'method: "DELETE"',
+        "td.colSpan = 10",
+    ):
+        assert anchor in text, anchor
+    assert "await refreshAll();" in js
+    assert "resetSelection();" in js
+
+
+def test_frontend_exposes_random_auction_modality():
+    text = source()
+    js = script()
+    for anchor in (
+        'id="cfg-auction-mode"',
+        '<option value="random">',
+        'id="nomination-panel"',
+        'id="nomination-status"',
+        "/api/nomination?team=",
+        "override manuale",
+    ):
+        assert anchor in text, anchor
+    assert "renderNomination(nextNomination)" in js
+    assert "if (nextNomination.current) await pick(nextNomination.current.key)" in js
+    assert js.count("await refreshAll();") >= 6
+
+
 def test_frontend_uses_safe_dom_apis_and_live_statuses():
     text = source()
     js = script()

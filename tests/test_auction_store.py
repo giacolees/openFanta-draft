@@ -8,7 +8,7 @@ Coprono, sul livello store (SQLite + replay senza HTTP):
 - revoke/restate (correct) e config-reset via nuovo ``league_configured``;
 - backup replace/append con rimappatura ``supersedes``;
 - input corrotto => atomicita' (DB intatto);
-- missing pid (drift listone) e log che violano le invarianti => StoreError;
+- missing pid (drift listone) => revoke compensativa; altre violazioni => StoreError;
 - scritture concorrenti (N thread) => seq univoci e invarianti a quiescenza;
 - schema_version, WAL, context manager, store chiuso.
 """
@@ -363,12 +363,52 @@ def test_log_corrotto_doppia_vendita_errore(tmp_path):
     s.close()
 
 
-def test_missing_pid_drift_listone_errore(tmp_path):
+def test_missing_pid_drift_rimuove_acquisto_e_rimborsa_squadra(tmp_path):
     s = _make_store(tmp_path)
     _seed(s)
-    s.append("sold", _sold("ZZZ-GIOCATORE-SPARITO"))
-    with pytest.raises(StoreError, match="drift|assente dal listone"):
-        replay_engine(s, _players(), TrendAuction)
+    s.append("sold", _sold("ALPHA", price=40, team="IO"))
+    missing_seq = s.append("sold", _sold("ZZZ-GIOCATORE-SPARITO", price=30, team="T1"))
+
+    eng = replay_engine(s, _players(), TrendAuction)
+
+    assert eng.state["sold"] == [(_pid("ALPHA"), 40, "IO", "A")]
+    assert eng.state["money"]["IO"] == 60
+    assert eng.state["money"]["T1"] == 100
+    assert all(e["nome"] != "ZZZ-GIOCATORE-SPARITO" for e in eng.events)
+    assert eng.replay_drift_removed == [
+        {
+            "seq": missing_seq,
+            "type": "sold",
+            "pid": _pid("ZZZ-GIOCATORE-SPARITO"),
+            "nome": "ZZZ-GIOCATORE-SPARITO",
+            "team": "T1",
+        }
+    ]
+    revoke = s.latest()
+    assert revoke["type"] == "revoke"
+    assert revoke["supersedes"] == missing_seq
+    assert revoke["payload"]["reason"] == "listone_drift/player_removed"
+
+    # Il secondo resume non aggiunge altre rettifiche.
+    seq_after_cleanup = s.event_seq
+    resumed = replay_engine(s, _players(), TrendAuction)
+    assert s.event_seq == seq_after_cleanup
+    assert resumed.replay_drift_removed == []
+    assert resumed.state == eng.state
+    s.close()
+
+
+def test_missing_pid_unsold_viene_rettificato(tmp_path):
+    s = _make_store(tmp_path)
+    _seed(s)
+    missing_seq = s.append("unsold", _unsold("ZZZ-GIOCATORE-SPARITO"))
+
+    eng = replay_engine(s, _players(), TrendAuction)
+
+    assert eng.events == []
+    assert eng.state["unsold"] == {}
+    assert s.latest()["supersedes"] == missing_seq
+    assert eng.replay_drift_removed[0]["type"] == "unsold"
     s.close()
 
 

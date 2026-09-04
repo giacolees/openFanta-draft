@@ -91,17 +91,21 @@ Alternative: `--prezzo "Nome"` per una valutazione singola, `--demo` per la simu
   - **vs PMA**: quanto stiamo pagando rispetto al prezzo medio delle aste in Italia
   - per ognuno: media mobile delle ultime 5 vendite, verdetto **IN RIALZO ↗ / STABILI → /
     IN CALO ↘** globale e per ruolo, grafico con linea di riferimento sul valore libro
-- **export CSV** dal pannello Stato lega:
-  - **Svincolati** (ancora in carta) filtrabili per ruolo, con valutazione live:
-    PFC/PMA e range, slot, TIX/FIX, contributo atteso, scarsità e prezzo suggerito
-  - **Rose** delle squadre allo stato attuale: chi ha comprato cosa, a quale prezzo e
-    con quale premio vs PFC/PMA
-  - endpoint REST richiamabili anche da script: `/api/export/svincolati?ruolo=P|D|C|A`,
-    `/api/export/rose`
+- cinque workspace separati: **Asta** per le operazioni live, **Mercato** per gli
+  svincolati, **Rose** per composizione e spesa, **Analisi** per stato e trend,
+  **Simulatore** per gli scenari forward
+- **Svincolati** consultabili direttamente, con ricerca, filtro ruolo, paginazione e
+  apertura del giocatore nel tavolo d'asta; endpoint JSON `GET /api/svincolati`
+- **Rose** consultabili direttamente per squadra e ruolo, con riepiloghi di budget,
+  spesa e slot; ogni acquisto può essere rimosso con conferma, restituendo budget
+  e slot alla squadra (`GET /api/rose`, `DELETE /api/rose/{pid}`)
+- gli export CSV restano disponibili come azioni secondarie:
+  `/api/export/svincolati?ruolo=P|D|C|A` e `/api/export/rose`
 - **configurazione lega** (pulsante ⚙ Config): numero di squadre (2-20), crediti per
   squadra e nomi personalizzati delle rose; opzionali anche rose (slot per ruolo),
-  formazione (titolari per ruolo) e soglia titolarità; applicando la configurazione
-  l'asta riparte da zero (API: `GET/POST /api/config`)
+  formazione (titolari per ruolo), soglia titolarità e modalità d'asta manuale o
+  random su tutti i ruoli; applicando la configurazione l'asta riparte da zero
+  (API: `GET/POST /api/config`)
 
 Opzioni comuni: `--squadre 8 --budget 500 --io NOME --port 8000`.
 
@@ -267,8 +271,10 @@ ricostruisce il motore; `apply_event(auction, ev)` ri-issua un singolo evento
 verificando `check_invariants()` dopo ognuno (errori contestualizzati, mai
 stato parziale). Il replay parte dall'ultimo `league_configured` e riapplica i
 `sold`/`unsold` attivi in ordine; **pulisce l'undo stack** (gli eventi
-rivivono solo dal log). Un `pid` di un evento assente dal listone corrente
-(drift) blocca il resume con un errore chiaro.
+rivivono solo dal log). Se il `pid` di un'azione attiva non esiste più nel
+listone corrente (drift), il resume aggiunge una `revoke` compensativa: il
+record storico resta nel log, ma il giocatore viene rimosso dalla rosa e
+prezzo/slot tornano disponibili alla squadra.
 
 ```python
 uv run python - <<'EOF'

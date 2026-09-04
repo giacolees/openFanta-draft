@@ -40,8 +40,7 @@
         gap: 8px;
         padding: 10px 16px;
         border-bottom: 1px solid var(--border);
-        position: sticky;
-        top: 0;
+        position: relative;
         background: var(--bg);
         z-index: 5;
         flex-wrap: wrap;
@@ -605,7 +604,164 @@
         z-index: 10;
         max-width: min(92vw, 680px);
       }
+      .workspace-nav {
+        position: sticky;
+        top: 0;
+        z-index: 4;
+        display: flex;
+        gap: 4px;
+        padding: 8px max(16px, calc((100vw - 1400px) / 2));
+        overflow-x: auto;
+        background: color-mix(in srgb, var(--bg) 94%, transparent);
+        border-bottom: 1px solid var(--border);
+        scrollbar-width: none;
+      }
+      .workspace-nav::-webkit-scrollbar {
+        display: none;
+      }
+      .workspace-tab {
+        min-height: 44px;
+        padding: 8px 16px;
+        border-color: transparent;
+        background: transparent;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .workspace-tab[aria-selected="true"] {
+        color: var(--text);
+        background: #202836;
+        border-color: var(--border);
+      }
+      :focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      main.workspace {
+        display: block;
+        max-width: 1400px;
+        padding: 24px 16px 48px;
+      }
+      .view-panel[hidden] {
+        display: none;
+      }
+      .view-heading {
+        margin: 0 0 4px;
+        font-size: clamp(22px, 3vw, 34px);
+        line-height: 1.15;
+        letter-spacing: -0.025em;
+      }
+      .view-lead {
+        margin: 0 0 24px;
+        max-width: 68ch;
+        color: var(--muted);
+      }
+      .workspace-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.65fr) minmax(280px, 0.75fr);
+        gap: 16px;
+        align-items: start;
+      }
+      .workspace-grid > *,
+      .data-toolbar > * {
+        min-width: 0;
+      }
+      .view-panel .card {
+        border-radius: 6px;
+        box-shadow: none;
+      }
+      .utility-stack {
+        position: sticky;
+        top: 122px;
+      }
+      .data-toolbar {
+        display: grid;
+        grid-template-columns:
+          minmax(180px, 1fr) minmax(130px, 180px)
+          auto auto;
+        gap: 8px;
+        align-items: end;
+        margin-bottom: 16px;
+      }
+      .data-toolbar button {
+        min-height: 42px;
+      }
+      .data-status {
+        min-height: 24px;
+        margin: 4px 0 12px;
+        color: var(--muted);
+      }
+      .data-table tbody tr:hover {
+        background: #1c2330;
+      }
+      #market-table th:nth-child(2),
+      #market-table td:nth-child(2),
+      #roster-table th:nth-child(3),
+      #roster-table td:nth-child(3) {
+        text-align: left;
+      }
+      #pc-name {
+        scroll-margin-top: 72px;
+      }
+      .data-table .player-link {
+        min-height: 36px;
+        padding: 4px 8px;
+        border-color: transparent;
+        background: transparent;
+        color: var(--accent);
+        font-weight: 650;
+      }
+      .data-table .delete-player-btn {
+        min-height: 32px;
+        padding: 4px 9px;
+        color: var(--red);
+        border-color: #7a3940;
+        background: transparent;
+      }
+      .roster-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      .summary-block {
+        padding: 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: #121722;
+      }
+      .summary-block strong {
+        display: block;
+        margin-bottom: 6px;
+      }
+      .empty-state {
+        padding: 36px 16px;
+        text-align: center;
+        color: var(--muted);
+      }
+      @media (max-width: 900px) {
+        .workspace-grid {
+          grid-template-columns: 1fr;
+        }
+        .utility-stack {
+          position: static;
+        }
+        .data-toolbar {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
       @media (max-width: 700px) {
+        .workspace-nav {
+          top: 0;
+          padding-inline: 12px;
+        }
+        .data-toolbar {
+          grid-template-columns: 1fr;
+        }
+        input,
+        select,
+        textarea {
+          font-size: 16px;
+        }
         .section-grid {
           grid-template-columns: 1fr;
         }
@@ -683,8 +839,13 @@
             id="cfg-tit"
             min="0"
             max="100"
-            step="1"
-        /></label>
+            step="1" /></label
+        ><label
+          >Modalità asta<select id="cfg-auction-mode">
+            <option value="manual">Manuale</option>
+            <option value="random">Random — tutti i ruoli</option>
+          </select></label
+        >
       </div>
       <label
         >Nomi delle squadre (uno per riga, in ordine)<textarea
@@ -733,141 +894,392 @@
         ><button class="warn" id="restore-confirm">Conferma restore</button>
       </div>
     </dialog>
-    <main>
-      <section>
-        <div class="card">
-          <h2>Inserimento rapido</h2>
-          <input
-            type="text"
-            id="search"
-            placeholder="Cerca giocatore…"
-            autocomplete="off"
-            autofocus
-            role="combobox"
-            aria-expanded="false"
-            aria-controls="results"
-            aria-autocomplete="list"
-            aria-activedescendant=""
-            aria-label="Cerca giocatore"
-          />
-          <ul id="results" role="listbox" aria-label="Risultati ricerca"></ul>
-          <div id="player-card" class="hidden">
-            <div class="player-head">
-              <div>
-                <h3 id="pc-name"></h3>
-                <div id="pc-meta" class="mut"></div>
+    <nav class="workspace-nav" role="tablist" aria-label="Sezioni asta">
+      <button
+        class="workspace-tab"
+        id="tab-asta"
+        role="tab"
+        aria-selected="true"
+        aria-controls="view-asta"
+        tabindex="0"
+        data-view="asta"
+      >
+        Asta
+      </button>
+      <button
+        class="workspace-tab"
+        id="tab-mercato"
+        role="tab"
+        aria-selected="false"
+        aria-controls="view-mercato"
+        tabindex="-1"
+        data-view="mercato"
+      >
+        Mercato
+      </button>
+      <button
+        class="workspace-tab"
+        id="tab-rose"
+        role="tab"
+        aria-selected="false"
+        aria-controls="view-rose"
+        tabindex="-1"
+        data-view="rose"
+      >
+        Rose
+      </button>
+      <button
+        class="workspace-tab"
+        id="tab-analisi"
+        role="tab"
+        aria-selected="false"
+        aria-controls="view-analisi"
+        tabindex="-1"
+        data-view="analisi"
+      >
+        Analisi
+      </button>
+      <button
+        class="workspace-tab"
+        id="tab-simulatore"
+        role="tab"
+        aria-selected="false"
+        aria-controls="view-simulatore"
+        tabindex="-1"
+        data-view="simulatore"
+      >
+        Simulatore
+      </button>
+    </nav>
+    <main class="workspace" id="workspace">
+      <section
+        class="view-panel"
+        id="view-asta"
+        role="tabpanel"
+        aria-labelledby="tab-asta"
+      >
+        <h2 class="view-heading" id="heading-asta" tabindex="-1">Asta live</h2>
+        <p class="view-lead">
+          Nomina, valuta e registra ogni acquisto senza lasciare il tavolo
+          d'asta.
+        </p>
+        <div class="workspace-grid">
+          <div>
+            <div class="card" id="auction-card">
+              <h2>Giocatore in asta</h2>
+              <div id="nomination-panel" class="note hidden" aria-live="polite">
+                <strong id="nomination-title">Nomina random</strong>
+                <span id="nomination-status"></span>
               </div>
-              <span id="pc-calib-badge" class="badge stable hidden"
-                >Advisory</span
-              >
-            </div>
-            <div class="section-grid">
-              <section
-                class="value-section"
-                id="pc-market-section"
-                data-block="market"
-                aria-labelledby="market-title"
-              >
-                <h4 id="market-title">Mercato previsto</h4>
-                <div class="kv" id="pc-market"></div>
-              </section>
-              <section
-                class="value-section"
-                id="pc-fantasy-section"
-                data-block="fantasy"
-                aria-labelledby="fantasy-title"
-              >
-                <h4 id="fantasy-title">Valore fantasy</h4>
-                <div class="kv" id="pc-fantasy"></div>
-              </section>
-              <section
-                class="value-section"
-                id="pc-team-section"
-                data-block="my-team"
-                aria-labelledby="team-value-title"
-              >
-                <h4 id="team-value-title">Valore per la mia rosa</h4>
-                <div class="kv" id="pc-team-value"></div>
-              </section>
-            </div>
-            <section
-              class="value-section"
-              id="pc-maxbid"
-              data-block="maxbid"
-              aria-labelledby="caps-title"
-            >
-              <h4 id="caps-title">Max sostenibile — 4 cap</h4>
-              <div class="kv" id="pc-caps"></div>
-              <p class="mini" id="pc-alternative"></p>
-            </section>
-            <section class="value-section" aria-labelledby="scarcity-title">
-              <h4 id="scarcity-title">Scarsità per questo acquisto</h4>
-              <div class="kv" id="pc-scarcity"></div>
-              <p class="mini" id="pc-competitors"></p>
-            </section>
-            <section
-              class="value-section"
-              id="calibration-panel"
-              aria-labelledby="calibration-title"
-            >
-              <h4 id="calibration-title">
-                <span id="calibration-badge">Calibrazione</span>
-              </h4>
-              <div class="kv" id="pc-calibration"></div>
-            </section>
-            <div id="price-warning" class="warning hidden" role="alert"></div>
-            <div class="row">
-              <label
-                >Prezzo<input
-                  type="number"
-                  id="price"
-                  min="1"
-                  step="1"
-                  aria-label="Prezzo di vendita" /></label
-              ><label
-                >Squadra<select
-                  id="team"
-                  aria-label="Squadra acquirente"
-                ></select
-              ></label>
-            </div>
-            <div class="actions">
-              <button class="primary" id="sold-btn" disabled>Venduto ⏎</button
-              ><button class="warn" id="unsold-btn" disabled>Invenduto</button>
+              <input
+                type="text"
+                id="search"
+                placeholder="Cerca giocatore…"
+                autocomplete="off"
+                autofocus
+                role="combobox"
+                aria-expanded="false"
+                aria-controls="results"
+                aria-autocomplete="list"
+                aria-activedescendant=""
+                aria-label="Cerca giocatore"
+              />
+              <ul
+                id="results"
+                role="listbox"
+                aria-label="Risultati ricerca"
+              ></ul>
+              <div id="player-card" class="hidden">
+                <div class="player-head">
+                  <div>
+                    <h3 id="pc-name" tabindex="-1"></h3>
+                    <div id="pc-meta" class="mut"></div>
+                  </div>
+                  <span id="pc-calib-badge" class="badge stable hidden"
+                    >Advisory</span
+                  >
+                </div>
+                <div class="section-grid">
+                  <section
+                    class="value-section"
+                    id="pc-market-section"
+                    data-block="market"
+                    aria-labelledby="market-title"
+                  >
+                    <h4 id="market-title">Mercato previsto</h4>
+                    <div class="kv" id="pc-market"></div>
+                  </section>
+                  <section
+                    class="value-section"
+                    id="pc-fantasy-section"
+                    data-block="fantasy"
+                    aria-labelledby="fantasy-title"
+                  >
+                    <h4 id="fantasy-title">Valore fantasy</h4>
+                    <div class="kv" id="pc-fantasy"></div>
+                  </section>
+                  <section
+                    class="value-section"
+                    id="pc-team-section"
+                    data-block="my-team"
+                    aria-labelledby="team-value-title"
+                  >
+                    <h4 id="team-value-title">Valore per la mia rosa</h4>
+                    <div class="kv" id="pc-team-value"></div>
+                  </section>
+                </div>
+                <section
+                  class="value-section"
+                  id="pc-maxbid"
+                  data-block="maxbid"
+                  aria-labelledby="caps-title"
+                >
+                  <h4 id="caps-title">Max sostenibile — 4 cap</h4>
+                  <div class="kv" id="pc-caps"></div>
+                  <p class="mini" id="pc-alternative"></p>
+                </section>
+                <section class="value-section" aria-labelledby="scarcity-title">
+                  <h4 id="scarcity-title">Scarsità per questo acquisto</h4>
+                  <div class="kv" id="pc-scarcity"></div>
+                  <p class="mini" id="pc-competitors"></p>
+                </section>
+                <section
+                  class="value-section"
+                  id="calibration-panel"
+                  aria-labelledby="calibration-title"
+                >
+                  <h4 id="calibration-title">
+                    <span id="calibration-badge">Calibrazione</span>
+                  </h4>
+                  <div class="kv" id="pc-calibration"></div>
+                </section>
+                <div
+                  id="price-warning"
+                  class="warning hidden"
+                  role="alert"
+                ></div>
+                <div class="row">
+                  <label
+                    >Prezzo<input
+                      type="number"
+                      id="price"
+                      min="1"
+                      step="1"
+                      aria-label="Prezzo di vendita" /></label
+                  ><label
+                    >Squadra<select
+                      id="team"
+                      aria-label="Squadra acquirente"
+                    ></select
+                  ></label>
+                </div>
+                <div class="actions">
+                  <button class="primary" id="sold-btn" disabled>
+                    Venduto ⏎</button
+                  ><button class="warn" id="unsold-btn" disabled>
+                    Invenduto
+                  </button>
+                </div>
+              </div>
+              <div class="hint">
+                <kbd>↑</kbd><kbd>↓</kbd> risultati · <kbd>Invio</kbd> seleziona
+                · <kbd>Invio</kbd> sul prezzo registra
+              </div>
             </div>
           </div>
-          <div class="hint">
-            <kbd>↑</kbd><kbd>↓</kbd> risultati · <kbd>Invio</kbd> seleziona ·
-            <kbd>Invio</kbd> sul prezzo registra
-          </div>
+          <aside class="utility-stack" aria-label="Attività e manutenzione">
+            <div class="card">
+              <h2>Ultime operazioni</h2>
+              <ul id="recent"></ul>
+            </div>
+            <div class="card" id="persistence-bar">
+              <h2>Persistenza</h2>
+              <div class="persist" id="persistence-status" aria-live="polite">
+                Persistenza non disponibile
+              </div>
+              <div class="actions">
+                <button id="backup-btn">Scarica backup JSON</button
+                ><button id="restore-btn" class="file-label" type="button">
+                  Ripristina JSON</button
+                ><input
+                  type="file"
+                  id="restore-file"
+                  class="sr-only"
+                  accept="application/json,.json"
+                  tabindex="-1"
+                  aria-label="Scegli un file di backup JSON da ripristinare"
+                /><button id="correct-btn" class="warn">
+                  Rettifica ultima vendita
+                </button>
+              </div>
+            </div>
+          </aside>
         </div>
+      </section>
+
+      <section
+        class="view-panel"
+        id="view-mercato"
+        role="tabpanel"
+        aria-labelledby="tab-mercato"
+        hidden
+      >
+        <h2 class="view-heading" id="heading-mercato" tabindex="-1">
+          Mercato disponibile
+        </h2>
+        <p class="view-lead">
+          Confronta gli svincolati rimasti e apri un giocatore direttamente nel
+          tavolo d'asta.
+        </p>
         <div class="card">
-          <h2>Ultime operazioni</h2>
-          <ul id="recent"></ul>
-        </div>
-        <div class="card" id="persistence-bar">
-          <h2>Persistenza</h2>
-          <div class="persist" id="persistence-status" aria-live="polite">
-            Persistenza non disponibile
+          <div class="data-toolbar">
+            <label for="market-search"
+              >Cerca giocatore o club<input
+                id="market-search"
+                type="search"
+                placeholder="Es. Lautaro o Inter"
+            /></label>
+            <label for="exp-role"
+              >Ruolo<select id="exp-role">
+                <option value="">Tutti i ruoli</option>
+                <option value="P">Portieri</option>
+                <option value="D">Difensori</option>
+                <option value="C">Centrocampisti</option>
+                <option value="A">Attaccanti</option>
+              </select></label
+            >
+            <button id="market-refresh-btn" type="button">Aggiorna</button>
+            <button id="exp-svincolati-btn" type="button">Scarica CSV</button>
           </div>
-          <div class="actions">
-            <button id="backup-btn">⬇ Scarica backup JSON</button
-            ><button id="restore-btn" class="file-label" type="button">
-              Ripristina JSON</button
-            ><input
-              type="file"
-              id="restore-file"
-              class="sr-only"
-              accept="application/json,.json"
-              tabindex="-1"
-              aria-label="Scegli un file di backup JSON da ripristinare"
-            /><button id="correct-btn" class="warn">
-              Rettifica ultima vendita
+          <div
+            id="market-status"
+            class="data-status"
+            role="status"
+            aria-live="polite"
+          >
+            Apri il mercato per caricare gli svincolati.
+          </div>
+          <div class="table-wrap">
+            <table
+              id="market-table"
+              class="data-table"
+              aria-describedby="market-status"
+            >
+              <thead>
+                <tr>
+                  <th scope="col">Ruolo</th>
+                  <th scope="col">Giocatore</th>
+                  <th scope="col">Club</th>
+                  <th scope="col">PFC</th>
+                  <th scope="col">PMA</th>
+                  <th scope="col">Suggerito</th>
+                  <th scope="col">Slot</th>
+                  <th scope="col">Tit.</th>
+                  <th scope="col">Scarsità</th>
+                  <th scope="col">Inv.</th>
+                </tr>
+              </thead>
+              <tbody id="market-body"></tbody>
+            </table>
+          </div>
+          <div class="pager" id="market-pager">
+            <button id="market-prev-btn" type="button">
+              Pagina precedente
+            </button>
+            <span
+              id="market-page-info"
+              class="pager-info"
+              aria-live="polite"
+            ></span>
+            <button id="market-next-btn" type="button">
+              Pagina successiva
             </button>
           </div>
         </div>
       </section>
-      <section>
+
+      <section
+        class="view-panel"
+        id="view-rose"
+        role="tabpanel"
+        aria-labelledby="tab-rose"
+        hidden
+      >
+        <h2 class="view-heading" id="heading-rose" tabindex="-1">
+          Rose delle squadre
+        </h2>
+        <p class="view-lead">
+          Controlla composizione, spesa e slot occupati senza esportare il
+          registro.
+        </p>
+        <div class="card">
+          <div class="data-toolbar">
+            <label for="roster-team"
+              >Squadra<select id="roster-team">
+                <option value="">Tutte le squadre</option>
+              </select></label
+            >
+            <label for="roster-role"
+              >Ruolo<select id="roster-role">
+                <option value="">Tutti i ruoli</option>
+                <option value="P">Portieri</option>
+                <option value="D">Difensori</option>
+                <option value="C">Centrocampisti</option>
+                <option value="A">Attaccanti</option>
+              </select></label
+            >
+            <button id="roster-refresh-btn" type="button">Aggiorna</button>
+            <button id="exp-rose-btn" type="button">Scarica CSV</button>
+          </div>
+          <div
+            id="roster-status"
+            class="data-status"
+            role="status"
+            aria-live="polite"
+          >
+            Apri le rose per caricare gli acquisti.
+          </div>
+          <div id="roster-summary" class="roster-summary"></div>
+          <div class="table-wrap">
+            <table
+              id="roster-table"
+              class="data-table"
+              aria-describedby="roster-status"
+            >
+              <thead>
+                <tr>
+                  <th scope="col">Squadra</th>
+                  <th scope="col">Ruolo</th>
+                  <th scope="col">Giocatore</th>
+                  <th scope="col">Prezzo</th>
+                  <th scope="col">PFC</th>
+                  <th scope="col">Premium PFC</th>
+                  <th scope="col">PMA</th>
+                  <th scope="col">Premium PMA</th>
+                  <th scope="col">Acquisto</th>
+                  <th scope="col">Azioni</th>
+                </tr>
+              </thead>
+              <tbody id="roster-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="view-panel"
+        id="view-analisi"
+        role="tabpanel"
+        aria-labelledby="tab-analisi"
+        hidden
+      >
+        <h2 class="view-heading" id="heading-analisi" tabindex="-1">
+          Analisi della lega
+        </h2>
+        <p class="view-lead">
+          Monitora scarsità, budget e direzione dei prezzi separatamente dalle
+          operazioni live.
+        </p>
         <div class="card">
           <h2>Stato lega</h2>
           <div class="table-wrap">
@@ -894,28 +1306,9 @@
             <div id="config-feasibility-errors"></div>
             <div id="config-feasibility-warnings"></div>
           </div>
-          <div
-            class="row"
-            style="
-              margin-top: 12px;
-              border-top: 1px solid var(--border);
-              padding-top: 12px;
-            "
-          >
-            <label
-              >Export svincolati<select id="exp-role">
-                <option value="">Tutti i ruoli</option>
-                <option value="P">Portieri</option>
-                <option value="D">Difensori</option>
-                <option value="C">Centrocampisti</option>
-                <option value="A">Attaccanti</option>
-              </select></label
-            ><button id="exp-svincolati-btn">⬇ Svincolati (CSV)</button
-            ><button id="exp-rose-btn">⬇ Rose (CSV)</button>
-          </div>
         </div>
         <div class="card">
-          <h2>Analisi di tendenza — vs PFC e vs PMA</h2>
+          <h2>Andamento prezzi</h2>
           <svg
             id="chart"
             viewBox="0 0 600 240"
@@ -925,8 +1318,23 @@
           <div id="verdict" style="margin-top: 8px"></div>
           <div class="chips" id="role-chips"></div>
         </div>
+      </section>
+
+      <section
+        class="view-panel"
+        id="view-simulatore"
+        role="tabpanel"
+        aria-labelledby="tab-simulatore"
+        hidden
+      >
+        <h2 class="view-heading" id="heading-simulatore" tabindex="-1">
+          Simulatore attaccanti
+        </h2>
+        <p class="view-lead">
+          Esplora scenari forward senza affollare il tavolo operativo dell'asta.
+        </p>
         <div class="card" id="forward-card">
-          <h2>Simulatore Attaccanti</h2>
+          <h2>Parametri simulazione</h2>
           <div class="sim-controls">
             <label
               >Runs<input
@@ -1129,13 +1537,18 @@
         ioName = "IO",
         canUndo = false,
         calibration = null,
+        nomination = null,
         latestBackup = null,
         simEnvelope = null,
         simPage = { players: 0, probs: 0, combos: 0 },
         searchToken = 0,
         pickToken = 0,
         debounceH = null,
-        activeIdx = -1;
+        marketDebounceH = null,
+        activeIdx = -1,
+        activeView = "asta",
+        marketRows = [],
+        marketPage = 0;
       const roles = ["P", "D", "C", "A"],
         slotLabel = {
           1: "titolare sempre",
@@ -1198,6 +1611,58 @@
       function setText(id, text) {
         $(id).textContent = text == null ? "" : String(text);
       }
+      const viewNames = {
+        asta: "Asta live",
+        mercato: "Mercato disponibile",
+        rose: "Rose delle squadre",
+        analisi: "Analisi della lega",
+        simulatore: "Simulatore attaccanti",
+      };
+      async function activateView(
+        view,
+        { focus = false, updateHash = true } = {},
+      ) {
+        if (!viewNames[view]) view = "asta";
+        activeView = view;
+        for (const tab of document.querySelectorAll(".workspace-tab")) {
+          const active = tab.dataset.view === view;
+          tab.setAttribute("aria-selected", active ? "true" : "false");
+          tab.tabIndex = active ? 0 : -1;
+        }
+        for (const panel of document.querySelectorAll(".view-panel"))
+          panel.hidden = panel.id !== `view-${view}`;
+        document.title = `${viewNames[view]} · Asta Live Fanta`;
+        if (updateHash && location.hash !== `#${view}`)
+          history.pushState(null, "", `#${view}`);
+        if (view === "mercato") await loadMarket();
+        if (view === "rose") await loadRosters();
+        if (view === "simulatore") await loadLatest();
+        if (focus) $("heading-" + view).focus();
+      }
+      const workspaceTabs = [...document.querySelectorAll(".workspace-tab")];
+      for (const tab of workspaceTabs) {
+        tab.addEventListener("click", () =>
+          activateView(tab.dataset.view, { focus: true }),
+        );
+        tab.addEventListener("keydown", (event) => {
+          const current = workspaceTabs.indexOf(tab);
+          let next = null;
+          if (event.key === "ArrowRight")
+            next = (current + 1) % workspaceTabs.length;
+          if (event.key === "ArrowLeft")
+            next = (current - 1 + workspaceTabs.length) % workspaceTabs.length;
+          if (event.key === "Home") next = 0;
+          if (event.key === "End") next = workspaceTabs.length - 1;
+          if (next !== null) {
+            event.preventDefault();
+            workspaceTabs[next].focus();
+            activateView(workspaceTabs[next].dataset.view);
+          }
+        });
+      }
+      window.addEventListener("hashchange", () =>
+        activateView(location.hash.slice(1), { updateHash: false }),
+      );
       function kv(container, rows) {
         const n = $(container);
         n.replaceChildren();
@@ -1323,7 +1788,7 @@
           }
         }
       }
-      async function pick(key) {
+      async function pick(key, { focusPrice = true } = {}) {
         const token = ++pickToken;
         try {
           const data = await api(
@@ -1342,8 +1807,10 @@
           $("search").value = selected.nome;
           renderSelected();
           updateControls();
-          $("price").focus();
-          $("price").select();
+          if (focusPrice) {
+            $("price").focus();
+            $("price").select();
+          }
         } catch (e) {
           if (token === pickToken) toast(e.message);
         }
@@ -1359,7 +1826,7 @@
         setText("pc-name", p.nome);
         setText(
           "pc-meta",
-          `${p.ruolo_label || p.ruolo} · ${p.squadra || "—"} · ${p.fascia || "—"}${p.status ? " · " + p.status : ""}`,
+          `${p.ruolo_label || p.ruolo} · ${p.squadra || "—"} · ${p.fascia || "—"}${p.status ? " · " + p.status : ""}${nomination?.mode === "random" && nomination.current?.key !== p.key ? " · override manuale" : ""}`,
         );
         kv("pc-market", [
           ["Expected", `${fmt(m.expected ?? p.suggested, 0)} cr`],
@@ -1462,7 +1929,8 @@
           toast(
             r.ok ? "Operazione annullata" : "Nessuna operazione da annullare",
           );
-          refreshAll();
+          resetSelection();
+          await refreshAll();
         } catch (e) {
           toast(e.message);
         }
@@ -1502,7 +1970,7 @@
           });
           toast(`${r.nome} → ${r.team} per ${price} cr`);
           resetSelection();
-          refreshAll();
+          await refreshAll();
         } catch (e) {
           toast(e.message);
         }
@@ -1518,7 +1986,7 @@
           });
           toast(`${name} resta invenduto`);
           resetSelection();
-          refreshAll();
+          await refreshAll();
         } catch (e) {
           toast(e.message);
         }
@@ -1531,18 +1999,45 @@
         updateControls();
         $("search").focus();
       }
+      function renderNomination(data) {
+        nomination = data;
+        const randomMode = data.mode === "random";
+        $("nomination-panel").classList.toggle("hidden", !randomMode);
+        $("search").placeholder = randomMode
+          ? "Cerca manualmente o usa la nomina random…"
+          : "Cerca giocatore…";
+        if (!randomMode) return;
+        if (data.complete || !data.current) {
+          setText("nomination-status", "Asta completata");
+          return;
+        }
+        setText(
+          "nomination-status",
+          `${data.current.ruolo} · ${data.current.nome} · ${data.remaining} rimasti`,
+        );
+      }
       async function refreshAll() {
         try {
-          const [state, trend, cal] = await Promise.all([
+          const team = $("team").value || ioName;
+          const [state, trend, cal, nextNomination] = await Promise.all([
             api("/api/state"),
             api("/api/trend"),
             api("/api/calibration"),
+            api(`/api/nomination?team=${encodeURIComponent(team)}`),
           ]);
           calibration = cal;
           ioName = state.io || ioName;
           renderState(state);
           renderTrend(trend);
-          await loadLatest();
+          renderNomination(nextNomination);
+          if (nextNomination.mode === "random") {
+            invalidateSelection();
+            $("search").value = "";
+            if (nextNomination.current) await pick(nextNomination.current.key);
+          }
+          if (activeView === "mercato") await loadMarket();
+          if (activeView === "rose") await loadRosters();
+          if (activeView === "simulatore") await loadLatest();
         } catch (e) {
           toast(e.message);
         }
@@ -1680,6 +2175,8 @@
               x: 300,
               y: 120,
               fill: "#8b96a8",
+              "font-size": 24,
+              "font-weight": 500,
               "text-anchor": "middle",
             }),
           );
@@ -1723,6 +2220,241 @@
             }),
           );
       }
+      async function openMarketPlayer(pid) {
+        await activateView("asta");
+        await pick(pid, { focusPrice: false });
+        if (selected?.pid === pid) $("pc-name").focus();
+      }
+      function renderMarketPage() {
+        const pageSize = 50;
+        const pages = Math.max(1, Math.ceil(marketRows.length / pageSize));
+        marketPage = Math.min(marketPage, pages - 1);
+        const rows = marketRows.slice(
+          marketPage * pageSize,
+          (marketPage + 1) * pageSize,
+        );
+        const body = $("market-body");
+        body.replaceChildren();
+        for (const row of rows) {
+          const tr = el("tr");
+          const roleCell = el("td");
+          roleCell.append(el("span", `rb ${row.role}`, row.role));
+          const playerCell = el("td");
+          const playerButton = el("button", "player-link", row.name);
+          playerButton.type = "button";
+          playerButton.addEventListener("click", () =>
+            openMarketPlayer(row.pid),
+          );
+          playerCell.append(playerButton);
+          for (const cell of [
+            roleCell,
+            playerCell,
+            el("td", null, row.club || "—"),
+            el("td", null, fmt(row.pfc, 0)),
+            el("td", null, fmt(row.pma, 1)),
+            el("td", null, `${fmt(row.suggested_price, 0)} cr`),
+            el("td", null, row.slot),
+            el("td", null, `${fmt(row.starter_pct, 0)}%`),
+            el("td", null, `×${fmt(row.scarcity)}`),
+            el("td", null, row.unsold_count),
+          ])
+            tr.append(cell);
+          body.append(tr);
+        }
+        if (!rows.length) {
+          const tr = el("tr");
+          const td = el(
+            "td",
+            "empty-state",
+            "Nessun giocatore disponibile con questi filtri.",
+          );
+          td.colSpan = 10;
+          tr.append(td);
+          body.append(tr);
+        }
+        $("market-prev-btn").disabled = marketPage === 0;
+        $("market-next-btn").disabled = marketPage >= pages - 1;
+        setText(
+          "market-page-info",
+          marketRows.length
+            ? `Pagina ${marketPage + 1} di ${pages}`
+            : "Nessun risultato",
+        );
+      }
+      async function loadMarket({ resetPage = false } = {}) {
+        if (activeView !== "mercato") return;
+        if (resetPage) marketPage = 0;
+        const role = $("exp-role").value;
+        const query = $("market-search").value.trim();
+        setText("market-status", "Aggiornamento degli svincolati…");
+        try {
+          const data = await api(
+            `/api/svincolati?ruolo=${encodeURIComponent(role)}&q=${encodeURIComponent(query)}&team=${encodeURIComponent($("team").value || ioName)}`,
+          );
+          marketRows = data.rows;
+          renderMarketPage();
+          setText(
+            "market-status",
+            data.count === 1
+              ? "1 giocatore disponibile"
+              : `${data.count} giocatori disponibili`,
+          );
+        } catch (error) {
+          setText("market-status", `Mercato non disponibile: ${error.message}`);
+        }
+      }
+      async function deleteRosterPlayer(row, button) {
+        if (
+          !window.confirm(
+            `Rimuovere ${row.player} dalla rosa ${row.team}? La vendita sarà annullata e lo slot liberato.`,
+          )
+        )
+          return;
+        button.disabled = true;
+        try {
+          await api(`/api/rose/${encodeURIComponent(row.pid)}`, {
+            method: "DELETE",
+          });
+          toast(`${row.player} rimosso dalla rosa ${row.team}`);
+          resetSelection();
+          await refreshAll();
+        } catch (error) {
+          button.disabled = false;
+          toast(error.message);
+        }
+      }
+      async function loadRosters() {
+        if (activeView !== "rose") return;
+        const team = $("roster-team").value;
+        const role = $("roster-role").value;
+        setText("roster-status", "Aggiornamento delle rose…");
+        try {
+          const data = await api(
+            `/api/rose?team=${encodeURIComponent(team)}&ruolo=${encodeURIComponent(role)}`,
+          );
+          const teamSelect = $("roster-team");
+          const current = teamSelect.value;
+          teamSelect.replaceChildren(new Option("Tutte le squadre", ""));
+          for (const name of data.teams)
+            teamSelect.append(new Option(name, name));
+          if (
+            [...teamSelect.options].some((option) => option.value === current)
+          )
+            teamSelect.value = current;
+          const summary = $("roster-summary");
+          summary.replaceChildren();
+          for (const item of data.summaries) {
+            const block = el("div", "summary-block");
+            block.append(el("strong", null, item.team));
+            block.append(
+              el(
+                "div",
+                "mut",
+                `${item.purchases} acquisti · ${item.spent} cr spesi`,
+              ),
+            );
+            if (item.remaining_budget !== null)
+              block.append(
+                el("div", null, `${item.remaining_budget} cr rimasti`),
+              );
+            if (item.filled_slots)
+              block.append(
+                el(
+                  "div",
+                  "mini",
+                  roles
+                    .map(
+                      (r) =>
+                        `${r} ${item.filled_slots[r]}/${item.total_slots[r]}`,
+                    )
+                    .join(" · "),
+                ),
+              );
+            summary.append(block);
+          }
+          const body = $("roster-body");
+          body.replaceChildren();
+          for (const row of data.rows) {
+            const tr = el("tr");
+            const roleCell = el("td");
+            roleCell.append(el("span", `rb ${row.role}`, row.role));
+            const actionCell = el("td");
+            const deleteButton = el("button", "delete-player-btn", "Rimuovi");
+            deleteButton.type = "button";
+            deleteButton.setAttribute(
+              "aria-label",
+              `Rimuovi ${row.player} dalla rosa ${row.team}`,
+            );
+            deleteButton.addEventListener("click", () =>
+              deleteRosterPlayer(row, deleteButton),
+            );
+            actionCell.append(deleteButton);
+            for (const cell of [
+              el("td", null, row.team),
+              roleCell,
+              el("td", null, row.player),
+              el("td", null, `${row.price} cr`),
+              el("td", null, row.pfc),
+              el("td", null, `${fmt(row.premium_pfc_pct, 1)}%`),
+              el("td", null, fmt(row.pma, 1)),
+              el(
+                "td",
+                null,
+                row.premium_pma_pct === null
+                  ? "—"
+                  : `${fmt(row.premium_pma_pct, 1)}%`,
+              ),
+              el("td", null, `#${row.purchase_number}`),
+              actionCell,
+            ])
+              tr.append(cell);
+            body.append(tr);
+          }
+          if (!data.rows.length) {
+            const tr = el("tr");
+            const td = el(
+              "td",
+              "empty-state",
+              "Nessun acquisto registrato con questi filtri.",
+            );
+            td.colSpan = 10;
+            tr.append(td);
+            body.append(tr);
+          }
+          setText(
+            "roster-status",
+            data.count === 1
+              ? "1 acquisto visualizzato"
+              : `${data.count} acquisti visualizzati`,
+          );
+        } catch (error) {
+          $("roster-summary").replaceChildren();
+          $("roster-body").replaceChildren();
+          setText("roster-status", `Rose non disponibili: ${error.message}`);
+        }
+      }
+      $("market-refresh-btn").addEventListener("click", () => loadMarket());
+      $("market-prev-btn").addEventListener("click", () => {
+        marketPage--;
+        renderMarketPage();
+      });
+      $("market-next-btn").addEventListener("click", () => {
+        marketPage++;
+        renderMarketPage();
+      });
+      $("exp-role").addEventListener("change", () =>
+        loadMarket({ resetPage: true }),
+      );
+      $("market-search").addEventListener("input", () => {
+        clearTimeout(marketDebounceH);
+        marketDebounceH = setTimeout(
+          () => loadMarket({ resetPage: true }),
+          220,
+        );
+      });
+      $("roster-refresh-btn").addEventListener("click", loadRosters);
+      $("roster-team").addEventListener("change", loadRosters);
+      $("roster-role").addEventListener("change", loadRosters);
       function downloadCsv(url, name) {
         fetch(url)
           .then(async (r) => {
@@ -2047,7 +2779,8 @@
           });
           toast(`Restore completato: ${r.events} eventi`);
           $("restore-dialog").close();
-          refreshAll();
+          resetSelection();
+          await refreshAll();
         } catch (e) {
           toast(e.message);
         }
@@ -2083,7 +2816,8 @@
             }),
           });
           toast("Ultima vendita rettificata");
-          refreshAll();
+          resetSelection();
+          await refreshAll();
         } catch (e) {
           toast(e.message);
         }
@@ -2095,6 +2829,7 @@
           $("cfg-teams").value = c.teams;
           $("cfg-budget").value = c.budget;
           $("cfg-tit").value = c.tit_cov_threshold;
+          $("cfg-auction-mode").value = c.auction_mode || "manual";
           $("cfg-names").value = c.names.join("\n");
           for (const r of roles) {
             $("slot-" + r).value = c.slots[r];
@@ -2139,6 +2874,7 @@
             roles.map((r) => [r, parseInt($("form-" + r).value, 10)]),
           ),
           tit_cov_threshold: parseInt($("cfg-tit").value, 10),
+          auction_mode: $("cfg-auction-mode").value,
         };
         try {
           const r = await api("/api/config", {
@@ -2181,13 +2917,17 @@
               ? "Configurazione applicata: verifica i warning nel dialog"
               : "Configurazione applicata: asta azzerata",
           );
-          refreshAll();
+          resetSelection();
+          $("roster-team").value = "";
+          await refreshAll();
         } catch (e) {
           setText("cfg-feasibility", e.message);
           toast(e.message);
         }
       });
-      refreshAll().catch((e) => toast(e.message));
+      activateView(location.hash.slice(1) || "asta", { updateHash: false })
+        .then(refreshAll)
+        .catch((e) => toast(e.message));
     </script>
   </body>
 </html>

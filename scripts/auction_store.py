@@ -20,7 +20,10 @@ Contratti:
   resta integro; il replay esclude gli eventi revocati (superseded).
 - **Replay deterministico**: ``replay_engine``/``replay_events`` partono
   dall'ultimo ``league_configured`` e riapplicano ``sold``/``unsold`` attivi in
-  ordine, verificando ``check_invariants()`` dopo ogni evento. Errori sempre
+  ordine, verificando ``check_invariants()`` dopo ogni evento. Se un giocatore
+  e' stato rimosso dal listone corrente, ``replay_engine`` revoca in modo
+  compensativo le sue azioni attive: sparisce anche dalla rosa e il budget
+  torna disponibile, mentre lo storico resta nel log. Errori sempre
   contestualizzati; mai stato parziale (il motore viene sostituito solo dopo un
   replay riuscito).
 - **Concorrenza**: lock in-process (``threading.RLock``) + ``BEGIN IMMEDIATE``
@@ -44,7 +47,7 @@ from typing import Any
 
 # Nessun ciclo: live_auction non importa auction_store; qui le eccezioni di
 # dominio servono a contestualizzare gli errori di replay.
-from live_auction import ROLE_ORDER, AuctionError
+from live_auction import ROLE_ORDER, AuctionError, compute_pid
 from typing_extensions import Self
 
 SCHEMA_VERSION = 1
@@ -194,11 +197,75 @@ def replay_events(
     return engine
 
 
+def drifted_player_actions(
+    events: list[dict[str, Any]], players: list[Any]
+) -> list[dict[str, Any]]:
+    """Azioni attive del segmento corrente riferite a giocatori rimossi.
+
+    Gli eventi dei segmenti precedenti all'ultimo ``league_configured`` non
+    contribuiscono allo stato corrente e non richiedono rettifiche. Un pid
+    malformato resta invece nel replay stretto, che lo segnala come errore.
+    """
+    active = list(active_events(events))
+    cfg_events = [e for e in active if e["type"] == "league_configured"]
+    if not cfg_events:
+        return []
+    cfg_seq = cfg_events[-1]["seq"]
+    current_pids = {
+        player.get("pid") or compute_pid(player["nome"], player["ruolo"])
+        for player in players
+    }
+    return [
+        event
+        for event in active
+        if event["seq"] > cfg_seq
+        and event["type"] in ("sold", "unsold")
+        and isinstance(event["payload"].get("pid"), str)
+        and event["payload"]["pid"] not in current_pids
+    ]
+
+
 def replay_engine(store: AuctionStore, players: list[Any], engine_cls: Any) -> Any:
-    """Ricostruisce il motore dal log dello store (resume deterministico)."""
+    """Ricostruisce il motore e rettifica il drift da giocatori rimossi.
+
+    Ogni azione attiva su un pid non piu' presente viene compensata con una
+    ``revoke`` append-only. Il giocatore non viene quindi riproiettato nella
+    rosa, prezzo e slot sono restituiti alla squadra, e i replay successivi
+    sono idempotenti.
+    """
     if store is None:
         raise StoreError("store non attivo")
-    return replay_events(store.read_all(), players, engine_cls)
+    events = store.read_all()
+    drifted = drifted_player_actions(events, players)
+    if drifted:
+        store.append_batch(
+            [
+                (
+                    "revoke",
+                    {
+                        "target_seq": event["seq"],
+                        "reason": "listone_drift/player_removed",
+                        "pid": event["payload"]["pid"],
+                        "nome": event["payload"].get("nome"),
+                    },
+                    event["seq"],
+                )
+                for event in drifted
+            ]
+        )
+        events = store.read_all()
+    engine = replay_events(events, players, engine_cls)
+    engine.replay_drift_removed = [
+        {
+            "seq": event["seq"],
+            "type": event["type"],
+            "pid": event["payload"]["pid"],
+            "nome": event["payload"].get("nome"),
+            "team": event["payload"].get("team"),
+        }
+        for event in drifted
+    ]
+    return engine
 
 
 # ---------------------------------------------------------------------------

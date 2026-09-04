@@ -149,6 +149,32 @@ def test_validate_nomi_duplicati_io_e_conteggio():
     assert any("IO" in e for e in errs)
 
 
+def test_validate_auction_mode_and_random_queue():
+    manual = league_config.normalize({"teams": 2})
+    assert manual["auction_mode"] == "manual"
+    assert manual["random_queue"] is None
+    assert league_config.validate(manual) == []
+
+    random_cfg = league_config.normalize(
+        {"teams": 2, "auction_mode": "random", "random_queue": ["p-1", "a-1"]}
+    )
+    assert league_config.validate(random_cfg) == []
+    assert any(
+        "auction_mode" in e
+        for e in league_config.validate(
+            league_config.normalize({"teams": 2, "auction_mode": "role"})
+        )
+    )
+    assert any(
+        "duplicati" in e
+        for e in league_config.validate(
+            league_config.normalize(
+                {"teams": 2, "auction_mode": "random", "random_queue": ["a", "a"]}
+            )
+        )
+    )
+
+
 def test_validate_tit_cov_threshold_opzionale():
     # assente = opzionale (default 70 in normalize); fuori range = errore
     norm = league_config.normalize({"teams": 2})
@@ -508,6 +534,7 @@ def test_web_config_get_restituisce_config_normalizzata():
         "slots",
         "formation",
         "tit_cov_threshold",
+        "auction_mode",
         # WP8: flag advisory esposto (non applicato al prezzo in questo WP)
         "use_calibration_in_price",
     }

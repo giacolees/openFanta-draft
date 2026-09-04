@@ -80,6 +80,8 @@ DEFAULTS = {
     "unsold_discount": 0.85,  # sconto per ogni volta che il giocatore resta invenduto
     "io": "IO",  # nome della propria squadra
     "team_names": None,  # nomi personalizzati delle squadre (lista ordinata); None = IO, T1, T2...
+    "auction_mode": "manual",
+    "random_queue": None,
 }
 
 # Chiavi dello schema config: tutto il resto passa through (tuning del motore).
@@ -91,6 +93,8 @@ _SCHEMA_KEYS = {
     "tit_cov_threshold",
     "io",
     "team_names",
+    "auction_mode",
+    "random_queue",
 }
 
 
@@ -121,7 +125,13 @@ def normalize(cfg: dict[str, Any]) -> dict[str, Any]:
     Idempotente. NON valida: i tipi/limiti restano a ``validate()``.
     """
     out = dict(DEFAULTS)
-    for key in ("teams", "budget", "tit_cov_threshold"):
+    for key in (
+        "teams",
+        "budget",
+        "tit_cov_threshold",
+        "auction_mode",
+        "random_queue",
+    ):
         if key in cfg:
             out[key] = cfg[key]
     # slots/formation parziali: i ruoli mancanti prendono il default; se il
@@ -237,6 +247,22 @@ def validate(cfg: dict[str, Any], *, profile: str = "public") -> list[str]:
         errors.append(
             f"tit_cov_threshold deve essere un intero tra 0 e 100 (trovato {tit!r})"
         )
+
+    auction_mode = cfg.get("auction_mode", "manual")
+    if auction_mode not in ("manual", "random"):
+        errors.append("auction_mode non valido: valori ammessi manual, random")
+    random_queue = cfg.get("random_queue")
+    if random_queue is not None:
+        if not isinstance(random_queue, list):
+            errors.append("random_queue non valida: serve una lista di pid")
+        elif any(not isinstance(pid, str) or not pid for pid in random_queue):
+            errors.append("random_queue non valida: ogni pid deve essere una stringa non vuota")
+        elif len(set(random_queue)) != len(random_queue):
+            errors.append("random_queue non valida: contiene pid duplicati")
+    if auction_mode == "random" and random_queue is None:
+        errors.append("random_queue richiesta per auction_mode random")
+    if auction_mode == "manual" and random_queue is not None:
+        errors.append("random_queue deve essere assente per auction_mode manual")
 
     # ---- WP6: floor per ruolo e pesi di allocazione (opzionali, pass-through) ----
     # Backward-compat: l'assenza non cambia nulla; la presenza impone i vincoli

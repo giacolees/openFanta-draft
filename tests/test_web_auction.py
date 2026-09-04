@@ -115,6 +115,122 @@ POOL_FULL = make_pool(p=8, d=16, c=16, a=14)  # copre 2 squadre x (P3 D8 C8 A6)
 POOL_NO_A = make_pool(p=8, d=16, c=16, a=4)  # A insufficiente per 2 squadre (12>4)
 
 
+# ---------------------------------------------------------- nomina random
+def test_random_nomination_progression_and_manual_override():
+    players = make_pool(p=1, d=1, c=1, a=2)
+    pids = [wa.compute_pid(p["nome"], p["ruolo"]) for p in players]
+    eng = set_engine(
+        players,
+        teams=1,
+        budget=100,
+        auction_mode="random",
+        random_queue=pids,
+    )
+
+    first = wa.api_nomination()
+    assert first["mode"] == "random"
+    assert first["current"]["pid"] == pids[0]
+    assert first["remaining"] == len(pids)
+    assert {eng.players[pid]["ruolo"] for pid in eng.nomination_queue()} == {
+        "P",
+        "D",
+        "C",
+        "A",
+    }
+
+    unsold = wa.api_unsold(wa.NameBody(key=pids[0]))
+    assert unsold["nomination"]["current_pid"] == pids[1]
+    assert eng.nomination_queue() == pids[1:] + [pids[0]]
+
+    override = pids[3]
+    sold = wa.api_sold(wa.SoldBody(key=override, price=1, team=None))
+    assert sold["nomination"]["current_pid"] == pids[1]
+    assert override not in eng.nomination_queue()
+
+
+def test_manual_nomination_has_no_current_player(engine):
+    data = wa.api_nomination()
+    assert data == {
+        "mode": "manual",
+        "current": None,
+        "remaining": len(engine.state["pool"]),
+        "complete": False,
+    }
+
+
+def test_random_queue_must_match_listone():
+    players = make_pool(a=3)
+    with pytest.raises(ConfigError, match="esattamente tutti i pid"):
+        set_engine(
+            players,
+            teams=1,
+            budget=100,
+            auction_mode="random",
+            random_queue=[wa.compute_pid("A01", "A")],
+        )
+
+
+# -------------------------------------------------- viste mercato e rose
+def test_api_svincolati_filtra_e_esclude_venduti():
+    eng = set_engine(make_pool(p=1, d=1, c=1, a=3), teams=1, budget=100)
+    sold_pid = pid_of(eng, "A01")
+    wa.api_sold(wa.SoldBody(key=sold_pid, price=20, team="IO"))
+
+    data = wa.api_svincolati(ruolo="A", q="A0", team="IO")
+    assert data["count"] == 2
+    assert {row["name"] for row in data["rows"]} == {"A02", "A03"}
+    assert sold_pid not in {row["pid"] for row in data["rows"]}
+    assert all(row["role"] == "A" for row in data["rows"])
+    assert all("suggested_price" in row and "scarcity" in row for row in data["rows"])
+    assert status_of(wa.api_svincolati(ruolo="X")) == 400
+
+
+def test_api_rose_espone_acquisti_e_riepilogo_squadre():
+    eng = set_engine(make_pool(a=4), teams=2, budget=100, io="IO")
+    wa.api_sold(wa.SoldBody(key="A01", price=30, team="IO"))
+    wa.api_sold(wa.SoldBody(key="A02", price=20, team="T1"))
+
+    data = wa.api_rose(team="IO", ruolo="A")
+    assert data["count"] == 1
+    assert data["rows"][0]["player"] == "A01"
+    assert data["rows"][0]["price"] == 30
+    own = next(item for item in data["summaries"] if item["team"] == "IO")
+    assert own["spent"] == 30
+    assert own["remaining_budget"] == 70
+    assert own["purchases"] == 1
+    assert own["filled_slots"]["A"] == 1
+    assert own["total_slots"]["A"] == eng.cfg["slots"]["A"]
+    assert status_of(wa.api_rose(team="INESISTENTE")) == 400
+    assert status_of(wa.api_rose(ruolo="X")) == 400
+
+
+def test_api_rose_delete_in_memory_rimborsa_e_preserva_undo():
+    eng = set_engine(make_pool(a=4), teams=2, budget=100, io="IO")
+    a01 = pid_of(eng, "A01")
+    a02 = pid_of(eng, "A02")
+    wa.api_sold(wa.SoldBody(key=a01, price=30, team="IO"))
+    wa.api_sold(wa.SoldBody(key=a02, price=20, team="T1"))
+
+    resp = wa.api_rose_delete(a01)
+
+    assert status_of(resp) == 200
+    assert resp["removed"] == {
+        "pid": a01,
+        "player": "A01",
+        "team": "IO",
+        "price": 30,
+    }
+    assert wa.engine.state["sold"] == [(a02, 20, "T1", "A")]
+    assert wa.engine.state["money"]["IO"] == 100
+    assert wa.engine.state["slots"]["IO"]["A"] == eng.cfg["slots"]["A"]
+    assert a01 in wa.engine.state["pool"]
+    assert status_of(wa.api_rose_delete(a01)) == 404
+
+    # Gli snapshot sono rigenerati: undo agisce sull'ultima vendita rimasta.
+    assert body_of(wa.api_undo())["ok"] is True
+    assert wa.engine.state["sold"] == []
+
+
 # ----------------------------------------------------------- vendita valida
 def test_api_vendita_valida_aggiorna_stato(engine):
     resp = wa.api_sold(wa.SoldBody(key="A01", price=40, team="IO"))

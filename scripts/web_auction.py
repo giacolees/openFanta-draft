@@ -30,6 +30,7 @@ import io
 import json
 import math
 import os
+import random
 import sys
 import threading
 import time
@@ -76,6 +77,7 @@ from live_auction import (
     ConfigError,
     InvalidPriceError,
     InvalidTeamError,
+    compute_pid,
     load_players,
     norm,
 )
@@ -103,6 +105,38 @@ class TrendAuction(Auction):
     def __init__(self, players, **overrides):
         super().__init__(players, **overrides)
         self.events = []
+        self.replay_drift_removed: list[dict[str, Any]] = []
+        queue = self.cfg.get("random_queue")
+        if self.cfg.get("auction_mode") == "random" and set(queue or []) != set(
+            self.players
+        ):
+            raise ConfigError(
+                "random_queue non valida: deve contenere esattamente tutti i pid del listone"
+            )
+
+    def nomination_queue(self):
+        if self.cfg.get("auction_mode") != "random":
+            return []
+        queue = list(self.cfg["random_queue"])
+        for event in self.events:
+            pid = event["pid"]
+            if pid in queue:
+                queue.remove(pid)
+            if event["kind"] == "unsold" and pid in self.state["pool"]:
+                queue.append(pid)
+        return queue
+
+    def nomination_summary(self):
+        queue = self.nomination_queue()
+        current = queue[0] if queue else None
+        return {
+            "mode": self.cfg.get("auction_mode", "manual"),
+            "current_pid": current,
+            "remaining": len(queue)
+            if self.cfg.get("auction_mode") == "random"
+            else len(self.state["pool"]),
+            "complete": not self.state["pool"],
+        }
 
     # ---------------------------------------------------------- calibrazione
     @property
@@ -442,6 +476,7 @@ def api_state(team: str | None = None):
         "spent_unknown": engine.state["spent_unknown"],
         "sales": sum(1 for e in engine.events if e["kind"] == "sold"),
         "events": len(engine.events),
+        "nomination": engine.nomination_summary(),
         "persistence": _persistence_block(),
     }
 
@@ -455,6 +490,7 @@ class ConfigBody(BaseModel):
     formation: dict[str, int] | None = None
     tit_cov_threshold: int | None = None
     use_calibration_in_price: bool | None = None
+    auction_mode: str = "manual"
 
 
 def config_payload(engine):
@@ -468,6 +504,7 @@ def config_payload(engine):
         "slots": dict(cfg["slots"]),
         "formation": dict(cfg["formation"]),
         "tit_cov_threshold": cfg["tit_cov_threshold"],
+        "auction_mode": cfg.get("auction_mode", "manual"),
         # WP8: flag advisory (esposto ma NON applicato al prezzo in questo WP)
         "use_calibration_in_price": _use_calibration_flag(cfg),
     }
@@ -508,6 +545,16 @@ def api_config_post(body: ConfigBody):
         overrides["tit_cov_threshold"] = body.tit_cov_threshold
     if body.use_calibration_in_price is not None:
         overrides["use_calibration_in_price"] = body.use_calibration_in_price
+    overrides["auction_mode"] = body.auction_mode
+    if body.auction_mode == "random":
+        queue = sorted(
+            p.get("pid") or compute_pid(p["nome"], p["ruolo"])
+            for p in require_players()
+        )
+        random.SystemRandom().shuffle(queue)
+        overrides["random_queue"] = queue
+    else:
+        overrides["random_queue"] = None
     cfg = league_config.normalize(overrides)
     errors = list(league_config.validate(cfg))
     if errors:
@@ -545,8 +592,29 @@ def api_config_post(body: ConfigBody):
         "budget": engine.cfg["budget"],
         "names": engine.cfg["team_names"],
         "io": engine.cfg["io"],
+        "nomination": engine.nomination_summary(),
         "persistence": _persistence_block(),
     }
+
+
+def nomination_payload(team: str | None = None):
+    summary = engine.nomination_summary()
+    current_pid = summary["current_pid"]
+    return {
+        "mode": summary["mode"],
+        "current": (
+            player_payload(engine, engine.players[current_pid], team)
+            if current_pid is not None
+            else None
+        ),
+        "remaining": summary["remaining"],
+        "complete": summary["complete"],
+    }
+
+
+@app.get("/api/nomination")
+def api_nomination(team: str | None = None):
+    return nomination_payload(team)
 
 
 @app.get("/api/players")
@@ -636,6 +704,7 @@ def api_sold(body: SoldBody):
         "team": team,
         "premium_pfc": round(body.price / p["base"], 3),
         "premium_pma": round(body.price / p["pma"], 3) if p["pma"] else None,
+        "nomination": engine.nomination_summary(),
         "persistence": _persistence_block(),
     }
 
@@ -659,7 +728,12 @@ def api_unsold(body: NameBody):
         )
     except StoreError as e:
         return JSONResponse({"error": str(e)}, status_code=500)
-    return {"ok": True, "pid": p["pid"], "nome": p["nome"]}
+    return {
+        "ok": True,
+        "pid": p["pid"],
+        "nome": p["nome"],
+        "nomination": engine.nomination_summary(),
+    }
 
 
 @app.post("/api/undo")
@@ -684,9 +758,11 @@ def api_undo():
         return {
             "ok": True,
             "revoked": target["seq"],
+            "nomination": engine.nomination_summary(),
             "persistence": _persistence_block(),
         }
-    return {"ok": engine.undo()}
+    ok = engine.undo()
+    return {"ok": ok, "nomination": engine.nomination_summary()}
 
 
 def _use_calibration_flag(cfg: dict[str, Any]) -> bool:
@@ -1112,7 +1188,12 @@ def api_restore(body: RestoreBody):
     except StoreError as e:
         _rebuild_engine_from_store()
         return JSONResponse({"error": str(e)}, status_code=409)
-    return {"ok": True, **result, "persistence": _persistence_block()}
+    return {
+        "ok": True,
+        **result,
+        "nomination": engine.nomination_summary(),
+        "persistence": _persistence_block(),
+    }
 
 
 @app.post("/api/correct")
@@ -1193,6 +1274,7 @@ def api_correct(body: CorrectBody):
         return {
             "ok": True,
             "revoked": target["seq"],
+            "nomination": engine.nomination_summary(),
             "persistence": _persistence_block(),
         }
     # --- restate (revoke + nuova sold atomica) ---
@@ -1254,6 +1336,7 @@ def api_correct(body: CorrectBody):
         "ok": True,
         "corrected": target["seq"],
         "new": {"price": body.price, "team": team},
+        "nomination": engine.nomination_summary(),
         "persistence": _persistence_block(),
     }
 
@@ -1273,54 +1356,106 @@ def csv_response(rows, fieldnames, filename):
     )
 
 
-@app.get("/api/export/svincolati")
-def export_svincolati(ruolo: str = ""):
-    """Lista dei svincolati (ancora in carta) con valutazione live, filtrabile per ruolo."""
-    ruolo = ruolo.strip().upper()
-    if ruolo and ruolo not in ROLE_ORDER:
-        return JSONResponse(
-            {"error": "ruolo non valido (P, D, C, A o vuoto)"}, status_code=400
-        )
+def svincolati_rows(ruolo: str = "", q: str = "", team: str | None = None):
+    query = norm(q)
     rows = []
     for key in engine.state["pool"]:
         p = engine.players[key]
         if ruolo and p["ruolo"] != ruolo:
             continue
-        e = engine.evaluate(p)
+        if query and query not in norm(p["nome"]) and query not in norm(p["squadra"]):
+            continue
+        evaluation = engine.evaluate(p, team)
         rows.append(
             {
-                "Pid": p["pid"],
-                "Ruolo": p["ruolo"],
-                "Nome": p["nome"],
-                "Squadra": p["squadra"],
-                "Fascia": p["fascia"],
-                "Status": p["status"],
-                "Slot consigliato": p["slot"],
-                "PFC": p["base"],
-                "Range PFC": p["pfc_range"],
-                "PMA": round(p["pma"], 1),
-                "Range PMA": p["pma_range"],
-                "PFC vs PMA": round(p["dpfcpma"], 1),
-                "Titolarita%": p["tit"],
-                "TIX": p["tix"],
-                "FM attesa": p["expfm"],
-                "FIX": p["fix"],
-                "Contributo/gior": p["fix_contrib"],
-                "Scarsita": round(e["scarc"], 2),
-                "Valore alternative": e["alt_value"],
-                "Prezzo suggerito": e["suggested"],
-                "Invenduto (volte)": engine.state["unsold"].get(key, 0),
+                "pid": p["pid"],
+                "role": p["ruolo"],
+                "name": p["nome"],
+                "club": p["squadra"],
+                "tier": p["fascia"],
+                "status": p["status"],
+                "slot": p["slot"],
+                "pfc": p["base"],
+                "pfc_range": p["pfc_range"],
+                "pma": round(p["pma"], 1),
+                "pma_range": p["pma_range"],
+                "pfc_vs_pma": round(p["dpfcpma"], 1),
+                "starter_pct": p["tit"],
+                "tix": p["tix"],
+                "expected_fm": p["expfm"],
+                "fix": p["fix"],
+                "daily_contribution": p["fix_contrib"],
+                "scarcity": round(evaluation["scarc"], 2),
+                "alternative_value": evaluation["alt_value"],
+                "suggested_price": evaluation["suggested"],
+                "unsold_count": engine.state["unsold"].get(key, 0),
             }
         )
-    rows.sort(key=lambda r: (r["Ruolo"], -r["PFC"]))
-    name = f"svincolati_{ruolo.lower() if ruolo else 'tutti'}"
-    return csv_response(
-        rows,
+    role_index = {role: i for i, role in enumerate(ROLE_ORDER)}
+    rows.sort(key=lambda row: (role_index[row["role"]], -row["pfc"], row["name"]))
+    return rows
+
+
+def _valid_role(ruolo: str):
+    role = ruolo.strip().upper()
+    if role and role not in ROLE_ORDER:
+        return None
+    return role
+
+
+@app.get("/api/svincolati")
+def api_svincolati(ruolo: str = "", q: str = "", team: str | None = None):
+    role = _valid_role(ruolo)
+    if role is None:
+        return JSONResponse(
+            {"error": "ruolo non valido (P, D, C, A o vuoto)"}, status_code=400
+        )
+    rows = svincolati_rows(role, q, team)
+    return {"rows": rows, "count": len(rows), "role": role, "query": q.strip()}
+
+
+@app.get("/api/export/svincolati")
+def export_svincolati(ruolo: str = ""):
+    """Lista dei svincolati (ancora in carta) con valutazione live, filtrabile per ruolo."""
+    role = _valid_role(ruolo)
+    if role is None:
+        return JSONResponse(
+            {"error": "ruolo non valido (P, D, C, A o vuoto)"}, status_code=400
+        )
+    source = svincolati_rows(role)
+    rows = [
+        {
+            "Pid": row["pid"],
+            "Ruolo": row["role"],
+            "Nome": row["name"],
+            "Squadra": row["club"],
+            "Fascia": row["tier"],
+            "Status": row["status"],
+            "Slot consigliato": row["slot"],
+            "PFC": row["pfc"],
+            "Range PFC": row["pfc_range"],
+            "PMA": row["pma"],
+            "Range PMA": row["pma_range"],
+            "PFC vs PMA": row["pfc_vs_pma"],
+            "Titolarita%": row["starter_pct"],
+            "TIX": row["tix"],
+            "FM attesa": row["expected_fm"],
+            "FIX": row["fix"],
+            "Contributo/gior": row["daily_contribution"],
+            "Scarsita": row["scarcity"],
+            "Valore alternative": row["alternative_value"],
+            "Prezzo suggerito": row["suggested_price"],
+            "Invenduto (volte)": row["unsold_count"],
+        }
+        for row in source
+    ]
+    fields = (
         list(rows[0].keys())
         if rows
         else [
             "Pid",
             "Ruolo",
+            "Nome",
             "Squadra",
             "Fascia",
             "Status",
@@ -1339,41 +1474,182 @@ def export_svincolati(ruolo: str = ""):
             "Valore alternative",
             "Prezzo suggerito",
             "Invenduto (volte)",
-        ],
-        name,
+        ]
     )
+    name = f"svincolati_{role.lower() if role else 'tutti'}"
+    return csv_response(rows, fields, name)
 
 
-@app.get("/api/export/rose")
-def export_rose():
-    """Rose delle squadre allo stato attuale: chi ha comprato cosa e a quale prezzo.
-
-    Eventi autosufficienti (team/pagato registrati nell'evento): nessun indice
-    parallelo su state['sold'], quindi niente disallineamenti tra eventi e stato.
-    """
+def rose_rows(team: str = "", ruolo: str = ""):
     rows = []
     for ev in engine.events:
         if ev["kind"] != "sold":
+            continue
+        if team and ev["team"] != team:
+            continue
+        if ruolo and ev["ruolo"] != ruolo:
             continue
         p = engine.players.get(ev.get("pid"))
         pma = p["pma"] if p else None
         rows.append(
             {
-                "Pid": ev.get("pid"),
-                "Squadra": ev["team"],
-                "Ruolo": ev["ruolo"],
-                "Giocatore": ev["nome"],
-                "Prezzo": ev["price"],
-                "PFC": ev["base"],
-                "Premium vs PFC%": round(100 * (ev["price"] / ev["base"] - 1), 1),
-                "PMA": round(pma, 1) if pma else None,
-                "Premium vs PMA%": round(100 * (ev["price"] / pma - 1), 1)
+                "pid": ev.get("pid"),
+                "team": ev["team"],
+                "role": ev["ruolo"],
+                "player": ev["nome"],
+                "price": ev["price"],
+                "pfc": ev["base"],
+                "premium_pfc_pct": round(100 * (ev["price"] / ev["base"] - 1), 1),
+                "pma": round(pma, 1) if pma else None,
+                "premium_pma_pct": round(100 * (ev["price"] / pma - 1), 1)
                 if pma
                 else None,
-                "N. acquisto": ev["i"] + 1,
+                "purchase_number": ev["i"] + 1,
             }
         )
-    rows.sort(key=lambda r: (r["Squadra"], -r["Prezzo"]))
+    role_index = {role: i for i, role in enumerate(ROLE_ORDER)}
+    rows.sort(key=lambda row: (row["team"], role_index[row["role"]], -row["price"]))
+    return rows
+
+
+def rose_summaries():
+    sold = rose_rows()
+    summaries = []
+    for team in engine.cfg["team_names"]:
+        purchases = [row for row in sold if row["team"] == team]
+        filled = dict.fromkeys(ROLE_ORDER, 0)
+        for row in purchases:
+            filled[row["role"]] += 1
+        summaries.append(
+            {
+                "team": team,
+                "spent": sum(row["price"] for row in purchases),
+                "remaining_budget": engine.state["money"][team],
+                "purchases": len(purchases),
+                "filled_slots": filled,
+                "total_slots": dict(engine.cfg["slots"]),
+            }
+        )
+    other = [row for row in sold if row["team"] == "ALTRO"]
+    if other:
+        summaries.append(
+            {
+                "team": "ALTRO",
+                "spent": sum(row["price"] for row in other),
+                "remaining_budget": None,
+                "purchases": len(other),
+                "filled_slots": None,
+                "total_slots": None,
+            }
+        )
+    return summaries
+
+
+@app.get("/api/rose")
+def api_rose(team: str = "", ruolo: str = ""):
+    role = _valid_role(ruolo)
+    if role is None:
+        return JSONResponse(
+            {"error": "ruolo non valido (P, D, C, A o vuoto)"}, status_code=400
+        )
+    valid_teams = [*engine.cfg["team_names"], "ALTRO"]
+    if team and team not in valid_teams:
+        return JSONResponse({"error": "squadra non valida"}, status_code=400)
+    rows = rose_rows(team, role)
+    return {
+        "rows": rows,
+        "count": len(rows),
+        "team": team,
+        "role": role,
+        "teams": valid_teams,
+        "summaries": rose_summaries(),
+    }
+
+
+def _engine_without_purchase(target: dict[str, Any]) -> TrendAuction:
+    """Ricostruisce lo stato in-memory omettendo una vendita.
+
+    Gli altri eventi restano nello stesso ordine, inclusi eventuali ``unsold``
+    precedenti. Gli snapshot di undo vengono rigenerati durante il replay, per
+    cui l'undo in-memory continua a riferirsi all'ultima azione rimasta.
+    """
+    source_players = PLAYERS or [dict(player) for player in engine.players.values()]
+    rebuilt = TrendAuction(source_players, **dict(engine.cfg))
+    skipped = False
+    for event in engine.events:
+        if event is target:
+            skipped = True
+            continue
+        player = rebuilt.players[event["pid"]]
+        if event["kind"] == "sold":
+            evaluation = rebuilt.evaluate(player, event.get("team"))
+            rebuilt.mark_sold(player, event["price"], event.get("team"), evaluation)
+        else:
+            rebuilt.mark_unsold(player)
+    if not skipped:
+        raise AuctionError("acquisto da rimuovere non trovato")
+    return rebuilt
+
+
+@app.delete("/api/rose/{pid}")
+def api_rose_delete(pid: str):
+    """Rimuove un acquisto dalla rosa e restituisce budget/slot alla squadra."""
+    global engine
+    target = next(
+        (
+            event
+            for event in reversed(engine.events)
+            if event["kind"] == "sold" and event["pid"] == pid
+        ),
+        None,
+    )
+    if target is None:
+        return JSONResponse(
+            {"error": "acquisto non trovato nella rosa"}, status_code=404
+        )
+    if store is not None:
+        result = api_correct(CorrectBody(key=pid, kind="revoke"))
+        if isinstance(result, JSONResponse):
+            return result
+    else:
+        try:
+            engine = _engine_without_purchase(target)
+        except (AuctionError, ConfigError) as exc:
+            return JSONResponse({"error": str(exc)}, status_code=409)
+        result = {
+            "ok": True,
+            "nomination": engine.nomination_summary(),
+            "persistence": _persistence_block(),
+        }
+    return {
+        **result,
+        "removed": {
+            "pid": pid,
+            "player": target["nome"],
+            "team": target["team"],
+            "price": target["price"],
+        },
+    }
+
+
+@app.get("/api/export/rose")
+def export_rose():
+    """Rose delle squadre allo stato attuale: chi ha comprato cosa e a quale prezzo."""
+    rows = [
+        {
+            "Pid": row["pid"],
+            "Squadra": row["team"],
+            "Ruolo": row["role"],
+            "Giocatore": row["player"],
+            "Prezzo": row["price"],
+            "PFC": row["pfc"],
+            "Premium vs PFC%": row["premium_pfc_pct"],
+            "PMA": row["pma"],
+            "Premium vs PMA%": row["premium_pma_pct"],
+            "N. acquisto": row["purchase_number"],
+        }
+        for row in rose_rows()
+    ]
     return csv_response(
         rows,
         [
@@ -1445,6 +1721,16 @@ def main():
             except StoreError as e:
                 print(f"Resume fallito: {e}", file=sys.stderr)
                 sys.exit(1)
+            removed = engine.replay_drift_removed
+            if removed:
+                names = ", ".join(
+                    str(item.get("nome") or item["pid"]) for item in removed
+                )
+                print(
+                    "Resume completato: rimossi dalle rose i giocatori non piu' "
+                    f"nel listone ({names}); azioni revocate nel log.",
+                    file=sys.stderr,
+                )
     import uvicorn
 
     uvicorn.run(app, host=args.host, port=args.port, log_level="warning")

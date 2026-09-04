@@ -178,6 +178,35 @@ def test_api_config_apre_nuovo_segmento(persisted):
     assert persisted.get_meta("league_cfg") is not None
 
 
+def test_random_queue_persists_and_undo_restores_progression(persisted):
+    resp = wa.api_config_post(
+        wa.ConfigBody(
+            teams=2,
+            budget=300,
+            names=["IO", "T1"],
+            io="IO",
+            auction_mode="random",
+        )
+    )
+    assert status_of(resp) == 200
+    cfg_event = persisted.latest()
+    queue = cfg_event["payload"]["config"]["random_queue"]
+    expected = {p.get("pid") or compute_pid(p["nome"], p["ruolo"]) for p in wa.PLAYERS}
+    assert len(queue) == len(expected)
+    assert set(queue) == expected
+    assert wa.api_nomination()["current"]["pid"] == queue[0]
+
+    wa.api_unsold(wa.NameBody(key=queue[0]))
+    assert wa.engine.nomination_queue() == queue[1:] + [queue[0]]
+
+    resumed = wa.replay_engine(persisted, wa.PLAYERS, wa.TrendAuction)
+    assert resumed.nomination_queue() == queue[1:] + [queue[0]]
+
+    undo = wa.api_undo()
+    assert undo["nomination"]["current_pid"] == queue[0]
+    assert wa.engine.nomination_queue() == queue
+
+
 def test_api_state_espone_persistence(persisted):
     wa.api_sold(wa.SoldBody(key="A01", price=40, team="IO"))
     st = wa.api_state()
@@ -268,12 +297,8 @@ def test_api_restore_append(persisted):
     assert wa.engine.check_invariants() == []
 
 
-def test_api_restore_invalido_400_preserva_stato(persisted):
-    wa.api_sold(wa.SoldBody(key="A01", price=40, team="IO"))
-    before_events = persisted.read_all()
-    before_sold = list(wa.engine.state["sold"])
-    # vendita di un giocatore assente dal listone: replay del restore fallisce
-    bad_events = [
+def test_api_restore_drift_rimuove_giocatore_da_rosa(persisted):
+    events = [
         {
             "seq": 1,
             "ts": "2026-09-01T08:00:00+00:00",
@@ -296,9 +321,58 @@ def test_api_restore_invalido_400_preserva_stato(persisted):
             "supersedes": None,
         },
     ]
+
+    resp = wa.api_restore(wa.RestoreBody(mode="replace", events=events))
+
+    assert status_of(resp) == 200
+    assert wa.engine.state["sold"] == []
+    assert wa.engine.state["money"]["T1"] == DEFAULT_CFG["budget"]
+    assert wa.api_rose(team="T1")["rows"] == []
+    assert persisted.event_seq == 3
+    revoke = persisted.latest()
+    assert revoke["type"] == "revoke"
+    assert revoke["supersedes"] == 2
+    assert revoke["payload"]["reason"] == "listone_drift/player_removed"
+
+
+def test_api_restore_invalido_400_preserva_stato(persisted):
+    wa.api_sold(wa.SoldBody(key="A01", price=40, team="IO"))
+    before_events = persisted.read_all()
+    before_sold = list(wa.engine.state["sold"])
+    sold = {
+        "pid": compute_pid("A02", "A"),
+        "nome": "A02",
+        "ruolo": "A",
+        "price": 30,
+        "team": "T1",
+        "base": 50,
+    }
+    # La doppia vendita resta una violazione bloccante e non muta lo store.
+    bad_events = [
+        {
+            "seq": 1,
+            "ts": "2026-09-01T08:00:00+00:00",
+            "type": "league_configured",
+            "payload": {"config": dict(DEFAULT_CFG)},
+            "supersedes": None,
+        },
+        {
+            "seq": 2,
+            "ts": "2026-09-01T08:01:00+00:00",
+            "type": "sold",
+            "payload": sold,
+            "supersedes": None,
+        },
+        {
+            "seq": 3,
+            "ts": "2026-09-01T08:02:00+00:00",
+            "type": "sold",
+            "payload": sold,
+            "supersedes": None,
+        },
+    ]
     resp = wa.api_restore(wa.RestoreBody(mode="replace", events=bad_events))
     assert status_of(resp) == 400
-    assert "drift" in body_of(resp)["error"] or "listone" in body_of(resp)["error"]
     # DB e motore intatti
     assert persisted.read_all() == before_events
     assert wa.engine.state["sold"] == before_sold
@@ -341,6 +415,30 @@ def test_api_correct_revoke(persisted):
     assert body_of(resp)["revoked"] == 2
     assert wa.engine.state["sold"] == []
     assert wa.engine.check_invariants() == []
+
+
+def test_api_rose_delete_persistito_revoca_vendita(persisted):
+    pid = compute_pid("A01", "A")
+    wa.api_sold(wa.SoldBody(key=pid, price=40, team="IO"))
+
+    resp = wa.api_rose_delete(pid)
+
+    assert status_of(resp) == 200
+    assert resp["removed"] == {
+        "pid": pid,
+        "player": "A01",
+        "team": "IO",
+        "price": 40,
+    }
+    assert [event["type"] for event in persisted.read_all()] == [
+        "league_configured",
+        "sold",
+        "revoke",
+    ]
+    assert persisted.latest()["supersedes"] == 2
+    assert wa.engine.state["sold"] == []
+    assert wa.engine.state["money"]["IO"] == 100
+    assert wa.api_rose(team="IO")["rows"] == []
 
 
 def test_api_correct_by_key(persisted):
