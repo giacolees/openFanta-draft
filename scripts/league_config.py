@@ -41,6 +41,11 @@ from unicodedata import normalize as _unicode_normalize
 # fonte di verita' dei parametri calibration_*). ``calibration`` e' puro
 # stdlib e non importa league_config: nessun ciclo.
 import calibration
+from mantra import (  # pyright: ignore[reportMissingImports]
+    MANTRA_FORMATIONS,
+    has_explicit_roles,
+    player_roles,
+)
 
 # ------------------------------------------------------------- schema della lega
 ROLE_ORDER = ["P", "D", "C", "A"]
@@ -63,8 +68,11 @@ MAX_BUDGET = 10000
 DEFAULTS = {
     "teams": 8,
     "budget": 500,
+    "game_mode": "classic",
+    "roster_size": 28,  # best practice Mantra: 28-30, minimo ufficiale 23
+    "mantra_formation": "4-3-3",
     "slots": {"P": 3, "D": 8, "C": 8, "A": 6},  # rosa classica da 25
-    "formation": {"P": 1, "D": 4, "C": 4, "A": 2},  # titolari per ruolo (352)
+    "formation": {"P": 1, "D": 4, "C": 4, "A": 2},  # titolari per ruolo (442)
     "tit_cov_threshold": 70,  # titolarita' minima per "coprire" uno slot
     "starter_slot_max": 2,  # slot <= 2 = qualita' titolare (top-20 del ruolo)
     "value_floor": 5,  # PFC minimo per entrare nel "valore in carta"
@@ -88,6 +96,9 @@ DEFAULTS = {
 _SCHEMA_KEYS = {
     "teams",
     "budget",
+    "game_mode",
+    "roster_size",
+    "mantra_formation",
     "slots",
     "formation",
     "tit_cov_threshold",
@@ -128,6 +139,9 @@ def normalize(cfg: dict[str, Any]) -> dict[str, Any]:
     for key in (
         "teams",
         "budget",
+        "game_mode",
+        "roster_size",
+        "mantra_formation",
         "tit_cov_threshold",
         "auction_mode",
         "random_queue",
@@ -210,6 +224,23 @@ def validate(cfg: dict[str, Any], *, profile: str = "public") -> list[str]:
             f"il budget deve essere un intero tra {MIN_BUDGET} e {MAX_BUDGET} crediti"
         )
 
+    game_mode = cfg.get("game_mode", "classic")
+    if game_mode not in ("classic", "mantra"):
+        errors.append("game_mode non valido: valori ammessi classic, mantra")
+    roster_size = cfg.get("roster_size")
+    if (game_mode == "mantra" or roster_size is not None) and (
+        type(roster_size) is not int or not 23 <= roster_size <= 90
+    ):
+        errors.append("roster_size Mantra deve essere un intero tra 23 e 90")
+    mantra_formation = cfg.get("mantra_formation")
+    if (game_mode == "mantra" or mantra_formation is not None) and (
+        mantra_formation not in MANTRA_FORMATIONS
+    ):
+        errors.append(
+            "mantra_formation non valida: valori ammessi "
+            + ", ".join(MANTRA_FORMATIONS)
+        )
+
     slots = cfg.get("slots")
     formation = cfg.get("formation")
     if not isinstance(slots, dict):
@@ -256,7 +287,9 @@ def validate(cfg: dict[str, Any], *, profile: str = "public") -> list[str]:
         if not isinstance(random_queue, list):
             errors.append("random_queue non valida: serve una lista di pid")
         elif any(not isinstance(pid, str) or not pid for pid in random_queue):
-            errors.append("random_queue non valida: ogni pid deve essere una stringa non vuota")
+            errors.append(
+                "random_queue non valida: ogni pid deve essere una stringa non vuota"
+            )
         elif len(set(random_queue)) != len(random_queue):
             errors.append("random_queue non valida: contiene pid duplicati")
     if auction_mode == "random" and random_queue is None:
@@ -345,6 +378,12 @@ def minimum_roster_cost(cfg: dict[str, Any], players: list[Any] | None = None) -
     counts = _count_roles(players) if players else None
     role_floors = cfg.get("role_floor_price") or {}
     floor_default = cfg.get("min_slot_price", 2)
+    if cfg.get("game_mode") == "mantra":
+        size = cfg.get("roster_size")
+        if type(size) is not int or size < 0:
+            return 0
+        available = len(players) if players is not None else size
+        return min(size, available) * floor_default
     slots = cfg.get("slots")
     total = 0
     if isinstance(slots, dict):
@@ -402,7 +441,26 @@ def feasibility(
     slots = cfg.get("slots")
     counts = _count_roles(players)
 
-    if type(teams) is int and isinstance(slots, dict):
+    if cfg.get("game_mode") == "mantra":
+        if type(teams) is int:
+            roster_size = cfg.get("roster_size")
+            eligible = [p for p in players if has_explicit_roles(p)]
+            if type(roster_size) is int:
+                need = teams * roster_size
+                if len(eligible) < need:
+                    errors.append(
+                        f"listone insufficiente per le rose Mantra: {teams} squadre x "
+                        f"{roster_size} giocatori = {need} necessari, disponibili "
+                        f"{len(eligible)} con ruoli Mantra ufficiali."
+                    )
+            keepers = sum(1 for p in eligible if "Por" in player_roles(p))
+            keeper_need = teams * 2
+            if keepers < keeper_need:
+                errors.append(
+                    f"portieri Mantra insufficienti: servono almeno {keeper_need} "
+                    f"(2 per squadra), disponibili {keepers}."
+                )
+    elif type(teams) is int and isinstance(slots, dict):
         for role in ROLE_ORDER:
             s = slots.get(role)
             if type(s) is not int:

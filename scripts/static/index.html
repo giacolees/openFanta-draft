@@ -251,6 +251,17 @@
         color: var(--muted);
         justify-content: center;
       }
+      #recent li {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+        padding: 6px 2px;
+      }
+      #recent li.empty {
+        color: var(--muted);
+        justify-content: center;
+      }
       .rb {
         font-size: 10px;
         font-weight: 700;
@@ -676,7 +687,7 @@
       .data-toolbar {
         display: grid;
         grid-template-columns:
-          minmax(180px, 1fr) minmax(130px, 180px)
+          minmax(180px, 1fr) repeat(3, minmax(120px, 170px))
           auto auto;
         gap: 8px;
         align-items: end;
@@ -834,6 +845,11 @@
             max="10000"
             step="1" /></label
         ><label
+          >Sistema di gioco<select id="cfg-game-mode">
+            <option value="classic">Classic</option>
+            <option value="mantra">Mantra</option>
+          </select></label
+        ><label
           >Soglia copertura titolarità<input
             type="number"
             id="cfg-tit"
@@ -853,19 +869,40 @@
           spellcheck="false"
         ></textarea></label
       ><label>La mia squadra<select id="cfg-io"></select></label>
-      <h3>Slot rosa</h3>
-      <div class="config-grid">
-        <label>P<input type="number" id="slot-P" min="1" max="30" /></label
-        ><label>D<input type="number" id="slot-D" min="1" max="30" /></label
-        ><label>C<input type="number" id="slot-C" min="1" max="30" /></label
-        ><label>A<input type="number" id="slot-A" min="1" max="30" /></label>
+      <div id="cfg-classic-options">
+        <h3>Slot rosa</h3>
+        <div class="config-grid">
+          <label>P<input type="number" id="slot-P" min="1" max="30" /></label
+          ><label>D<input type="number" id="slot-D" min="1" max="30" /></label
+          ><label>C<input type="number" id="slot-C" min="1" max="30" /></label
+          ><label>A<input type="number" id="slot-A" min="1" max="30" /></label>
+        </div>
+        <h3>Formazione titolare</h3>
+        <div class="config-grid">
+          <label>P<input type="number" id="form-P" min="1" max="30" /></label
+          ><label>D<input type="number" id="form-D" min="1" max="30" /></label
+          ><label>C<input type="number" id="form-C" min="1" max="30" /></label
+          ><label>A<input type="number" id="form-A" min="1" max="30" /></label>
+        </div>
       </div>
-      <h3>Formazione titolare</h3>
-      <div class="config-grid">
-        <label>P<input type="number" id="form-P" min="1" max="30" /></label
-        ><label>D<input type="number" id="form-D" min="1" max="30" /></label
-        ><label>C<input type="number" id="form-C" min="1" max="30" /></label
-        ><label>A<input type="number" id="form-A" min="1" max="30" /></label>
+      <div id="cfg-mantra-options" hidden>
+        <h3>Rosa Mantra</h3>
+        <div class="config-grid">
+          <label
+            >Giocatori<input
+              type="number"
+              id="cfg-roster-size"
+              min="23"
+              max="90"
+              value="28"
+          /></label>
+          <label>Modulo base<select id="cfg-mantra-formation"></select></label>
+        </div>
+        <div class="note">
+          Rosa libera: minimo 23 giocatori, inclusi almeno 2 portieri. Il
+          calcolatore assegna ogni polivalente al ruolo che massimizza la
+          copertura del modulo.
+        </div>
       </div>
       <div id="cfg-feasibility" class="feasibility" aria-live="polite"></div>
       <div class="note">
@@ -1146,6 +1183,25 @@
                 <option value="D">Difensori</option>
                 <option value="C">Centrocampisti</option>
                 <option value="A">Attaccanti</option>
+              </select></label
+            >
+            <label for="market-sort"
+              >Ordina per<select id="market-sort">
+                <option value="pfc">PFC</option>
+                <option value="pma">PMA</option>
+                <option value="suggested_price">Prezzo suggerito</option>
+                <option value="expected_fm">FM attesa</option>
+                <option value="starter_pct">Titolarità</option>
+                <option value="slot">Slot</option>
+                <option value="scarcity">Scarsità</option>
+                <option value="name">Nome</option>
+                <option value="club">Squadra</option>
+              </select></label
+            >
+            <label for="market-direction"
+              >Direzione<select id="market-direction">
+                <option value="desc">Decrescente</option>
+                <option value="asc">Crescente</option>
               </select></label
             >
             <button id="market-refresh-btn" type="button">Aggiorna</button>
@@ -1545,10 +1601,13 @@
         pickToken = 0,
         debounceH = null,
         marketDebounceH = null,
+        marketRequestToken = 0,
         activeIdx = -1,
         activeView = "asta",
         marketRows = [],
-        marketPage = 0;
+        marketPage = 0,
+        marketTotal = 0;
+      const marketPageSize = 30;
       const roles = ["P", "D", "C", "A"],
         slotLabel = {
           1: "titolare sempre",
@@ -1765,7 +1824,7 @@
             li.id = "result-" + idx++;
             li.dataset.key = p.key;
             li.append(
-              el("span", "rb " + p.ruolo, p.ruolo),
+              el("span", "rb " + p.ruolo, p.ruolo_label || p.ruolo),
               el("span", null, p.nome),
               el("span", "mut", p.squadra || ""),
               el("span", "mut", "slot " + p.slot),
@@ -1788,7 +1847,10 @@
           }
         }
       }
-      async function pick(key, { focusPrice = true } = {}) {
+      async function pick(
+        key,
+        { focusPrice = true, preservePrice = null } = {},
+      ) {
         const token = ++pickToken;
         try {
           const data = await api(
@@ -1806,6 +1868,10 @@
           }
           $("search").value = selected.nome;
           renderSelected();
+          if (preservePrice !== null) {
+            $("price").value = preservePrice;
+            checkPriceWarning();
+          }
           updateControls();
           if (focusPrice) {
             $("price").focus();
@@ -1912,7 +1978,11 @@
         checkPriceWarning();
       }
       $("team").addEventListener("change", () => {
-        if (selected) pick(selected.key);
+        if (selected)
+          pick(selected.key, {
+            focusPrice: false,
+            preservePrice: $("price").value,
+          });
       });
       $("price").addEventListener("input", checkPriceWarning);
       $("price").addEventListener("keydown", (e) => {
@@ -2063,6 +2133,26 @@
             tr.append(el("td", null, v));
           tb.append(tr);
         }
+        const roleSelect = $("exp-role"),
+          selectedRole = roleSelect.value;
+        roleSelect.replaceChildren(new Option("Tutti i ruoli", ""));
+        for (const option of s.role_options || [])
+          roleSelect.append(new Option(option.label, option.value));
+        roleSelect.value = [...roleSelect.options].some(
+          (option) => option.value === selectedRole,
+        )
+          ? selectedRole
+          : "";
+        const rosterRoleSelect = $("roster-role"),
+          selectedRosterRole = rosterRoleSelect.value;
+        rosterRoleSelect.replaceChildren(new Option("Tutti i ruoli", ""));
+        for (const option of s.role_options || [])
+          rosterRoleSelect.append(new Option(option.label, option.value));
+        rosterRoleSelect.value = [...rosterRoleSelect.options].some(
+          (option) => option.value === selectedRosterRole,
+        )
+          ? selectedRosterRole
+          : "";
         const bd = $("budgets");
         bd.replaceChildren(
           el(
@@ -2144,7 +2234,7 @@
         for (const e of recent) {
           const li = el("li");
           li.append(
-            el("span", "rb " + e.ruolo, e.ruolo),
+            el("span", "rb " + e.ruolo, e.ruolo_display || e.ruolo),
             el("span", null, e.nome),
           );
           if (e.team) li.append(el("span", "mut", "→ " + e.team));
@@ -2226,19 +2316,17 @@
         if (selected?.pid === pid) $("pc-name").focus();
       }
       function renderMarketPage() {
-        const pageSize = 50;
-        const pages = Math.max(1, Math.ceil(marketRows.length / pageSize));
+        const pages = Math.max(1, Math.ceil(marketTotal / marketPageSize));
         marketPage = Math.min(marketPage, pages - 1);
-        const rows = marketRows.slice(
-          marketPage * pageSize,
-          (marketPage + 1) * pageSize,
-        );
+        const rows = marketRows;
         const body = $("market-body");
         body.replaceChildren();
         for (const row of rows) {
           const tr = el("tr");
           const roleCell = el("td");
-          roleCell.append(el("span", `rb ${row.role}`, row.role));
+          roleCell.append(
+            el("span", `rb ${row.role}`, row.role_display || row.role),
+          );
           const playerCell = el("td");
           const playerButton = el("button", "player-link", row.name);
           playerButton.type = "button";
@@ -2276,7 +2364,7 @@
         $("market-next-btn").disabled = marketPage >= pages - 1;
         setText(
           "market-page-info",
-          marketRows.length
+          marketTotal
             ? `Pagina ${marketPage + 1} di ${pages}`
             : "Nessun risultato",
         );
@@ -2284,14 +2372,32 @@
       async function loadMarket({ resetPage = false } = {}) {
         if (activeView !== "mercato") return;
         if (resetPage) marketPage = 0;
+        const token = ++marketRequestToken;
         const role = $("exp-role").value;
         const query = $("market-search").value.trim();
+        const sortBy = $("market-sort").value;
+        const direction = $("market-direction").value;
+        const params = new URLSearchParams({
+          ruolo: role,
+          q: query,
+          sort_by: sortBy,
+          direction,
+          offset: String(marketPage * marketPageSize),
+          limit: String(marketPageSize),
+        });
         setText("market-status", "Aggiornamento degli svincolati…");
         try {
-          const data = await api(
-            `/api/svincolati?ruolo=${encodeURIComponent(role)}&q=${encodeURIComponent(query)}&team=${encodeURIComponent($("team").value || ioName)}`,
-          );
+          const data = await api(`/api/svincolati?${params}`);
+          if (token !== marketRequestToken) return;
+          if (!data.rows.length && data.count && marketPage > 0) {
+            marketPage = Math.max(
+              0,
+              Math.ceil(data.count / marketPageSize) - 1,
+            );
+            return loadMarket();
+          }
           marketRows = data.rows;
+          marketTotal = data.count;
           renderMarketPage();
           setText(
             "market-status",
@@ -2362,10 +2468,9 @@
                 el(
                   "div",
                   "mini",
-                  roles
+                  Object.entries(item.filled_slots)
                     .map(
-                      (r) =>
-                        `${r} ${item.filled_slots[r]}/${item.total_slots[r]}`,
+                      ([r, v]) => `${r} ${v}/${item.total_slots?.[r] ?? "—"}`,
                     )
                     .join(" · "),
                 ),
@@ -2377,7 +2482,9 @@
           for (const row of data.rows) {
             const tr = el("tr");
             const roleCell = el("td");
-            roleCell.append(el("span", `rb ${row.role}`, row.role));
+            roleCell.append(
+              el("span", `rb ${row.role}`, row.role_display || row.role),
+            );
             const actionCell = el("td");
             const deleteButton = el("button", "delete-player-btn", "Rimuovi");
             deleteButton.type = "button";
@@ -2436,15 +2543,14 @@
       $("market-refresh-btn").addEventListener("click", () => loadMarket());
       $("market-prev-btn").addEventListener("click", () => {
         marketPage--;
-        renderMarketPage();
+        loadMarket();
       });
       $("market-next-btn").addEventListener("click", () => {
         marketPage++;
-        renderMarketPage();
+        loadMarket();
       });
-      $("exp-role").addEventListener("change", () =>
-        loadMarket({ resetPage: true }),
-      );
+      for (const id of ["exp-role", "market-sort", "market-direction"])
+        $(id).addEventListener("change", () => loadMarket({ resetPage: true }));
       $("market-search").addEventListener("input", () => {
         clearTimeout(marketDebounceH);
         marketDebounceH = setTimeout(
@@ -2823,6 +2929,12 @@
         }
       });
       const cfgDialog = $("config-dialog");
+      function syncGameMode() {
+        const mantra = $("cfg-game-mode").value === "mantra";
+        $("cfg-classic-options").hidden = mantra;
+        $("cfg-mantra-options").hidden = !mantra;
+      }
+      $("cfg-game-mode").addEventListener("change", syncGameMode);
       $("config-btn").addEventListener("click", async () => {
         try {
           const c = await api("/api/config");
@@ -2830,12 +2942,22 @@
           $("cfg-budget").value = c.budget;
           $("cfg-tit").value = c.tit_cov_threshold;
           $("cfg-auction-mode").value = c.auction_mode || "manual";
+          $("cfg-game-mode").value = c.game_mode || "classic";
+          $("cfg-roster-size").value = c.roster_size || 28;
+          const mf = $("cfg-mantra-formation");
+          mf.replaceChildren(
+            ...(c.mantra_formations || []).map(
+              (name) => new Option(name, name),
+            ),
+          );
+          mf.value = c.mantra_formation || "4-3-3";
           $("cfg-names").value = c.names.join("\n");
           for (const r of roles) {
             $("slot-" + r).value = c.slots[r];
             $("form-" + r).value = c.formation[r];
           }
           syncIo(c.io);
+          syncGameMode();
           cfgDialog.showModal();
         } catch (e) {
           toast(e.message);
@@ -2867,6 +2989,9 @@
             .map((x) => x.trim())
             .filter(Boolean),
           io: $("cfg-io").value || null,
+          game_mode: $("cfg-game-mode").value,
+          roster_size: parseInt($("cfg-roster-size").value, 10),
+          mantra_formation: $("cfg-mantra-formation").value || "4-3-3",
           slots: Object.fromEntries(
             roles.map((r) => [r, parseInt($("slot-" + r).value, 10)]),
           ),

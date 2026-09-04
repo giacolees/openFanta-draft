@@ -531,6 +531,10 @@ def test_web_config_get_restituisce_config_normalizzata():
         "budget",
         "names",
         "io",
+        "game_mode",
+        "roster_size",
+        "mantra_formation",
+        "mantra_formations",
         "slots",
         "formation",
         "tit_cov_threshold",
@@ -540,6 +544,10 @@ def test_web_config_get_restituisce_config_normalizzata():
     }
     assert body["slots"] == {"P": 3, "D": 8, "C": 8, "A": 6}  # default league_config
     assert body["names"] == ["IO", "T1", "T2"]
+    assert body["game_mode"] == "classic"
+    assert body["roster_size"] == 28
+    assert body["mantra_formation"] == "4-3-3"
+    assert len(body["mantra_formations"]) == 11
     assert body["use_calibration_in_price"] is False  # default advisory OFF
 
 

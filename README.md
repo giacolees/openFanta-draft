@@ -101,11 +101,11 @@ Alternative: `--prezzo "Nome"` per una valutazione singola, `--demo` per la simu
   e slot alla squadra (`GET /api/rose`, `DELETE /api/rose/{pid}`)
 - gli export CSV restano disponibili come azioni secondarie:
   `/api/export/svincolati?ruolo=P|D|C|A` e `/api/export/rose`
-- **configurazione lega** (pulsante ⚙ Config): numero di squadre (2-20), crediti per
-  squadra e nomi personalizzati delle rose; opzionali anche rose (slot per ruolo),
-  formazione (titolari per ruolo), soglia titolarità e modalità d'asta manuale o
-  random su tutti i ruoli; applicando la configurazione l'asta riparte da zero
-  (API: `GET/POST /api/config`)
+- **configurazione lega** (pulsante ⚙ Config): sistema **Classic o Mantra**, numero
+  di squadre (2-20), crediti e nomi delle rose. Classic usa slot/formazione P-D-C-A;
+  Mantra usa rosa libera (default 28, minimo 23 con almeno 2 portieri) e uno degli
+  11 moduli ufficiali. La modalità d'asta può essere manuale o random; applicare
+  una configurazione fa ripartire l'asta da zero (`GET/POST /api/config`).
 
 Opzioni comuni: `--squadre 8 --budget 500 --io NOME --port 8000`.
 
@@ -115,8 +115,8 @@ vecchia modalita' in-memory (stato perso alla chiusura). Vedi sezione "Persisten
 
 ### Simulatore forward della fase Attaccanti (API)
 
-Il simulatore Monte Carlo della fase finale dell'asta (solo ruolo `A`,
-moduli `scripts/forward_*.py`, vedi `forward-simulator.md`) e' integrato
+Il simulatore Monte Carlo della fase finale dell'asta (**solo modalità Classic**,
+solo ruolo `A`; moduli `scripts/forward_*.py`, vedi `forward-simulator.md`) e' integrato
 nell'API live come endpoint **read-only** sull'asta corrente: nessuna mutazione
 dello stato, nessun impatto su prezzi e suggerimenti.
 
@@ -174,16 +174,31 @@ Chiavi (le opzionali senza default esplicito prendono i valori predefiniti):
 | --- | --- | --- |
 | `teams` | 8 | intero 2-20 |
 | `budget` | 500 | crediti per squadra, intero 10-10000 |
-| `slots` | `{P:3, D:8, C:8, A:6}` | slot di rosa per ruolo (interi ≥ 0, parziali: i ruoli mancanti prendono il default) |
+| `game_mode` | `classic` | `classic` oppure `mantra` |
+| `roster_size` | 28 | dimensione rosa Mantra, 23-90 |
+| `mantra_formation` | `4-3-3` | uno degli 11 moduli Mantra predefiniti |
+| `slots` | `{P:3, D:8, C:8, A:6}` | slot Classic per ruolo (interi ≥ 0, parziali: i ruoli mancanti prendono il default) |
 | `formation` | `{P:1, D:4, C:4, A:2}` | titolari per ruolo (interi ≥ 0, parziali); deve essere ≤ `slots` per ruolo |
 | `tit_cov_threshold` | 70 | soglia titolarità 0-100 per "coprire" uno slot |
 | `io` | `IO` | nome della propria squadra, deve comparire tra i nomi |
 | `team_names` / `names` | derivati `[io, T1, …]` | nomi delle squadre: unici, tanti quanti `teams` |
 
+In Mantra il listone conserva il ruolo Classic per prezzi/backtest e aggiunge
+`ruolo_mantra` (`Por`, `Dd`, `Ds`, `Dc`, `B`, `E`, `M`, `C`, `T`, `W`, `A`,
+`Pc`; multipli separati da `;`). Il matcher assegna ogni giocatore una sola volta
+alla posizione che massimizza copertura e qualità: un `W;A`, per esempio, viene
+valutato sia come ala sia come attaccante di raccordo. Scarsità, alternative,
+valore per la propria rosa e max bid usano questa compatibilità tattica. I ruoli
+mancanti non vengono inventati: il giocatore resta visibile, ma non è acquistabile
+in Mantra. `data/mantra_roles.csv` integra il listone corrente senza cambiare i PID.
+Si aggiorna dal file Quotazioni ufficiale con
+`uv run scripts/import_mantra_roles.py data/Quotazioni_Fantacalcio_....xlsx`.
+
 Errori **strutturali** (bloccanti): tipi/limiti delle chiavi, `formation ≤ slots`,
-nomi duplicati, `io` assente. Errori di **fattibilità** (bloccanti anch'essi): per
-ogni ruolo il listone deve avere almeno `teams × slots[ruolo]` giocatori e il
-budget deve coprire il **costo minimo di completamento rosa**
+nomi duplicati, `io` assente. In Classic, gli errori di **fattibilità** richiedono
+almeno `teams × slots[ruolo]` giocatori per ruolo; in Mantra richiedono almeno
+`teams × roster_size` giocatori con ruoli ufficiali e 2 portieri per squadra. Il
+budget deve sempre coprire il **costo minimo di completamento rosa**
 (`minimum_roster_cost` = Σ per ruolo di `min(slots[ruolo], disponibili_ruolo)` ×
 floor, default floor = `min_slot_price` = 2; WP6 introdurrà i floor per ruolo via
 `role_floor_price`). I **warning** di fattibilità (margine zero su un ruolo,
@@ -191,14 +206,15 @@ budget rigido ma raggiungibile) non bloccano ma vengono esposti.
 
 API:
 
-- `GET /api/config` → configurazione **normalizzata** corrente
-  (`teams, budget, names, io, slots, formation, tit_cov_threshold`).
-- `POST /api/config` (body: `{teams, budget, names, io?, slots?, formation?,
-  tit_cov_threshold?}`) → `200` con `{ok, config, feasibility: {errors,
+- `GET /api/config` → configurazione **normalizzata** corrente, inclusi
+  `game_mode`, `roster_size`, `mantra_formation` e `mantra_formations`.
+- `POST /api/config` (body: `{teams, budget, names, io?, game_mode?, roster_size?,
+  mantra_formation?, slots?, formation?, tit_cov_threshold?}`) → `200` con `{ok, config, feasibility: {errors,
   warnings}, minimum_roster_cost, teams, budget, names, io}`; `400` con la lista
 errori se strutturalmente invalida o non fattibile (nessun reset).
-- CLI: `config squadre=8 budget=500 slotp=3 slotd=8 slotc=8 slota=6
-  formazp=1 formazd=4 formazc=4 formaza=2 soglia-tit=70 io=IO` — valida prima di
+- CLI Classic: `config squadre=8 budget=500 slotp=3 slotd=8 slotc=8 slota=6
+  formazp=1 formazd=4 formazc=4 formaza=2 soglia-tit=70 io=IO`; CLI Mantra:
+  `config sistema=mantra rosa=28 modulo=4-3-3` — valida prima di
   azzerare; su errore stampa la lista errori e l'asta resta intatta.
 
 **Profilo engine (costruttore)**: `Auction.__init__` valida con un profilo

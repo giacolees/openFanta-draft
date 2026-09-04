@@ -81,6 +81,15 @@ from live_auction import (
     load_players,
     norm,
 )
+from mantra import (  # pyright: ignore[reportMissingImports]
+    MANTRA_FORMATIONS,
+    MANTRA_ROLE_LABEL,
+    MANTRA_ROLE_ORDER,
+    formation_slots,
+    parse_roles,
+    player_roles,
+    roles_text,
+)
 from pydantic import BaseModel, Field
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -165,6 +174,10 @@ class TrendAuction(Auction):
             "pid": p["pid"],
             "nome": p["nome"],
             "ruolo": p["ruolo"],
+            "ruolo_mantra": roles_text(p),
+            "ruolo_display": (
+                roles_text(p) if self.cfg.get("game_mode") == "mantra" else p["ruolo"]
+            ),
             "infl": round(self.inflation(), 4),
         }
         if kind == "sold":
@@ -247,11 +260,23 @@ class TrendAuction(Auction):
         }
 
         roles = {}
+        analysis_roles = (
+            MANTRA_ROLE_ORDER if self.cfg.get("game_mode") == "mantra" else ROLE_ORDER
+        )
         for key in ("pfc", "pma"):
             col = "premium_" + key
             roles[key] = {}
-            for role in ROLE_ORDER:
-                rp = [e[col] for e in sales if e["ruolo"] == role and e.get(col)]
+            for role in analysis_roles:
+                rp = [
+                    e[col]
+                    for e in sales
+                    if e.get(col)
+                    and (
+                        role in parse_roles(e.get("ruolo_mantra"))
+                        if self.cfg.get("game_mode") == "mantra"
+                        else e["ruolo"] == role
+                    )
+                ]
                 if len(rp) >= 4:
                     w2 = min(w, len(rp) // 2)
                     recent = sum(rp[-w2:]) / w2
@@ -278,28 +303,69 @@ class TrendAuction(Auction):
 
 def role_state(engine, role):
     cfg = engine.cfg
+    is_mantra = cfg.get("game_mode") == "mantra"
     group = [
         engine.players[k]
         for k in engine.state["pool"]
-        if engine.players[k]["ruolo"] == role
+        if (
+            role in player_roles(engine.players[k])
+            if is_mantra
+            else engine.players[k]["ruolo"] == role
+        )
     ]
     usable = [p for p in group if p["base"] >= cfg["quality_floor"]]
     scarcities = sorted(engine.scarcity(p) for p in usable)
     med = scarcities[len(scarcities) // 2] if scarcities else 1.0
-    spent = sum(price for _, price, _, r in engine.state["sold"] if r == role)
+    if is_mantra:
+        sold_players = [
+            (engine.players[pid], price)
+            for pid, price, _team, _classic_role in engine.state["sold"]
+            if pid in engine.players and role in player_roles(engine.players[pid])
+        ]
+        spent = sum(price for _player, price in sold_players)
+        initial = [p for p in engine.players.values() if role in player_roles(p)]
+        initial_quality = sum(
+            max(0, p["tit"] - cfg["tit_cov_threshold"]) for p in initial
+        )
+        remaining_quality = sum(
+            max(0, p["tit"] - cfg["tit_cov_threshold"]) for p in group
+        )
+        quality_left = round(100 * remaining_quality / max(initial_quality, 1))
+        starters_left = sum(1 for p in group if p["slot"] <= cfg["starter_slot_max"])
+        starters_needed = cfg["teams"] * sum(
+            1
+            for accepted in formation_slots(cfg["mantra_formation"])
+            if role in accepted
+        )
+        demand = max(0, starters_needed - len(sold_players))
+        fix_values = [
+            p["fix_contrib"] for p in group if p["tit"] >= cfg["tit_cov_threshold"]
+        ]
+        fix_mean = sum(fix_values) / len(fix_values) if fix_values else 0.0
+        initial_value = sum(p["base"] for p in initial)
+        label = f"{role} · {MANTRA_ROLE_LABEL[role]}"
+    else:
+        spent = sum(price for _, price, _, r in engine.state["sold"] if r == role)
+        quality_left = engine.quality_left(role)
+        starters_left = engine.starters_left(role)
+        starters_needed = cfg["teams"] * cfg["formation"][role]
+        demand = engine._demand(role)
+        fix_mean = engine.fix_mean(role)
+        initial_value = engine.role_pool0[role]
+        label = ROLE_LABEL[role]
     return {
         "role": role,
-        "label": ROLE_LABEL[role],
-        "demand": engine._demand(role),
+        "label": label,
+        "demand": demand,
         "usable": len(usable),
         "pool": len(group),
         "scarcity_med": round(med, 2),
-        "quality_left": engine.quality_left(role),
-        "starters_left": engine.starters_left(role),
-        "starters_needed": cfg["teams"] * cfg["formation"][role],
-        "fix_mean": round(engine.fix_mean(role), 2),
+        "quality_left": quality_left,
+        "starters_left": starters_left,
+        "starters_needed": starters_needed,
+        "fix_mean": round(fix_mean, 2),
         "spent": spent,
-        "spent_pct": round(100 * spent / max(engine.role_pool0[role], 1)),
+        "spent_pct": round(100 * spent / max(initial_value, 1)),
     }
 
 
@@ -320,7 +386,15 @@ def player_payload(engine, p, team, calib=None):
         "pid": p["pid"],
         "nome": p["nome"],
         "ruolo": p["ruolo"],
-        "ruolo_label": ROLE_LABEL[p["ruolo"]],
+        "ruolo_label": (
+            roles_text(p)
+            if engine.cfg.get("game_mode") == "mantra"
+            else ROLE_LABEL[p["ruolo"]]
+        ),
+        "ruolo_classic": p["ruolo"],
+        "ruolo_mantra": roles_text(p),
+        "ruoli_mantra": list(player_roles(p)),
+        "ruoli_mantra_label": [MANTRA_ROLE_LABEL[r] for r in player_roles(p)],
         "squadra": p["squadra"],
         "base": p["base"],
         "pfc_range": p["pfc_range"],
@@ -466,12 +540,37 @@ def api_state(team: str | None = None):
         "inflation": round(infl, 3),
         "inflation_pma": round(engine.inflation_pma(), 3),
         "io": engine.cfg["io"],
+        "game_mode": engine.cfg.get("game_mode", "classic"),
+        "mantra_formation": engine.cfg.get("mantra_formation"),
+        "roster_size": engine.cfg.get("roster_size"),
         "money_left": engine.state["money_league"],
         "value_left": engine._value_rem(),
         "total_value0": engine.total_value0,
         "formation": engine.cfg["formation"],
         "tit_threshold": engine.cfg["tit_cov_threshold"],
-        "roles": [role_state(engine, r) for r in ROLE_ORDER],
+        "roles": [
+            role_state(engine, r)
+            for r in (
+                MANTRA_ROLE_ORDER
+                if engine.cfg.get("game_mode") == "mantra"
+                else ROLE_ORDER
+            )
+        ],
+        "role_options": [
+            {
+                "value": r,
+                "label": (
+                    f"{r} · {MANTRA_ROLE_LABEL[r]}"
+                    if engine.cfg.get("game_mode") == "mantra"
+                    else ROLE_LABEL[r]
+                ),
+            }
+            for r in (
+                MANTRA_ROLE_ORDER
+                if engine.cfg.get("game_mode") == "mantra"
+                else ROLE_ORDER
+            )
+        ],
         "budgets": sorted(engine.state["money"].items(), key=lambda kv: -kv[1]),
         "spent_unknown": engine.state["spent_unknown"],
         "sales": sum(1 for e in engine.events if e["kind"] == "sold"),
@@ -486,6 +585,9 @@ class ConfigBody(BaseModel):
     budget: int
     names: list[str]
     io: str | None = None
+    game_mode: str = "classic"
+    roster_size: int = 28
+    mantra_formation: str = "4-3-3"
     slots: dict[str, int] | None = None
     formation: dict[str, int] | None = None
     tit_cov_threshold: int | None = None
@@ -500,6 +602,10 @@ def config_payload(engine):
         "teams": cfg["teams"],
         "budget": cfg["budget"],
         "names": cfg["team_names"],
+        "game_mode": cfg.get("game_mode", "classic"),
+        "roster_size": cfg.get("roster_size", 28),
+        "mantra_formation": cfg.get("mantra_formation", "4-3-3"),
+        "mantra_formations": list(MANTRA_FORMATIONS),
         "io": cfg["io"],
         "slots": dict(cfg["slots"]),
         "formation": dict(cfg["formation"]),
@@ -536,6 +642,9 @@ def api_config_post(body: ConfigBody):
         "budget": body.budget,
         "io": io,
         "team_names": [n.strip() for n in body.names if n.strip()],
+        "game_mode": body.game_mode,
+        "roster_size": body.roster_size,
+        "mantra_formation": body.mantra_formation,
     }
     if body.slots is not None:
         overrides["slots"] = body.slots
@@ -950,6 +1059,13 @@ def api_forward_snapshot():
     """Snapshot JSON v1 read-only dello stato corrente per il simulatore
     Attaccanti: solo ruolo A nel pool, budget/slot A + slots_other per squadra.
     Espone state_hash/event_seq. Nessuna mutazione del motore."""
+    if engine.cfg.get("game_mode") == "mantra":
+        return JSONResponse(
+            {
+                "error": "il simulatore forward A e' disponibile solo in modalita' Classic"
+            },
+            status_code=409,
+        )
     snap, state_hash, event_seq = _forward_base_snapshot()
     return {
         "schema_version": FORWARD_SCHEMA_VERSION,
@@ -973,6 +1089,13 @@ def api_forward_simulate(body: ForwardSimulateBody):
     undo/correct/config cambia lo snapshot hash e causa miss automatico.
     400 = input invalido; 409 = stato di simulazione infeasibile.
     La persistenza (store attivo o meno) non cambia la semantica."""
+    if engine.cfg.get("game_mode") == "mantra":
+        return JSONResponse(
+            {
+                "error": "il simulatore forward A e' disponibile solo in modalita' Classic"
+            },
+            status_code=409,
+        )
     if not (FORWARD_MIN_RUNS <= body.runs <= FORWARD_MAX_RUNS):
         return JSONResponse(
             {
@@ -1089,6 +1212,13 @@ def api_forward_latest():
     """Ultimo report di simulazione per lo stato CORRENTE dell'asta
     (content-addressed per state_hash): se l'asta e' cambiata dal calcolo
     (acquisto/undo/correct/config) non viene servito alcun report stale."""
+    if engine.cfg.get("game_mode") == "mantra":
+        return JSONResponse(
+            {
+                "error": "il simulatore forward A e' disponibile solo in modalita' Classic"
+            },
+            status_code=409,
+        )
     _, state_hash, event_seq = _forward_base_snapshot()
     with _FORWARD_LOCK:
         entry = _FORWARD_LATEST.get(state_hash)
@@ -1356,62 +1486,188 @@ def csv_response(rows, fieldnames, filename):
     )
 
 
-def svincolati_rows(ruolo: str = "", q: str = "", team: str | None = None):
+MARKET_SORT_FIELDS = {
+    "name",
+    "club",
+    "pfc",
+    "pma",
+    "suggested_price",
+    "expected_fm",
+    "starter_pct",
+    "slot",
+    "scarcity",
+}
+_MARKET_RAW_SORT = {
+    "name": lambda p: norm(p["nome"]),
+    "club": lambda p: norm(p["squadra"]),
+    "pfc": lambda p: p["base"],
+    "pma": lambda p: p["pma"],
+    "expected_fm": lambda p: p["expfm"],
+    "starter_pct": lambda p: p["tit"],
+    "slot": lambda p: p["slot"],
+}
+
+
+def _svincolati_keys(ruolo: str = "", q: str = "") -> list[str]:
+    """Fast live-pool lookup using immutable role/search indexes from Auction."""
+    keys = engine.state["pool"]
+    if ruolo:
+        keys = keys & engine.player_ids_for_role(ruolo)
     query = norm(q)
-    rows = []
-    for key in engine.state["pool"]:
-        p = engine.players[key]
-        if ruolo and p["ruolo"] != ruolo:
-            continue
-        if query and query not in norm(p["nome"]) and query not in norm(p["squadra"]):
-            continue
-        evaluation = engine.evaluate(p, team)
-        rows.append(
-            {
-                "pid": p["pid"],
-                "role": p["ruolo"],
-                "name": p["nome"],
-                "club": p["squadra"],
-                "tier": p["fascia"],
-                "status": p["status"],
-                "slot": p["slot"],
-                "pfc": p["base"],
-                "pfc_range": p["pfc_range"],
-                "pma": round(p["pma"], 1),
-                "pma_range": p["pma_range"],
-                "pfc_vs_pma": round(p["dpfcpma"], 1),
-                "starter_pct": p["tit"],
-                "tix": p["tix"],
-                "expected_fm": p["expfm"],
-                "fix": p["fix"],
-                "daily_contribution": p["fix_contrib"],
-                "scarcity": round(evaluation["scarc"], 2),
-                "alternative_value": evaluation["alt_value"],
-                "suggested_price": evaluation["suggested"],
-                "unsold_count": engine.state["unsold"].get(key, 0),
-            }
+    if query:
+        return [key for key in keys if query in engine.player_search_index[key]]
+    return list(keys)
+
+
+def _sort_player_keys(keys: list[str], sort_by: str, direction: str) -> list[str]:
+    reverse = direction == "desc"
+    if sort_by in ("name", "club"):
+        return sorted(
+            keys,
+            key=lambda key: _MARKET_RAW_SORT[sort_by](engine.players[key]),
+            reverse=reverse,
         )
-    role_index = {role: i for i, role in enumerate(ROLE_ORDER)}
-    rows.sort(key=lambda row: (role_index[row["role"]], -row["pfc"], row["name"]))
+    # Stable secondary ordering keeps pagination deterministic on equal values.
+    keys = sorted(keys, key=lambda key: norm(engine.players[key]["nome"]))
+    return sorted(
+        keys,
+        key=lambda key: _MARKET_RAW_SORT[sort_by](engine.players[key]),
+        reverse=reverse,
+    )
+
+
+def _svincolato_row(key: str, inflation: float) -> dict[str, Any]:
+    p = engine.players[key]
+    scarcity = engine.scarcity(p)
+    discount = engine.cfg["unsold_discount"] ** engine.state["unsold"].get(key, 0)
+    suggested = max(1, round(p["base"] * inflation * scarcity * discount))
+    return {
+        "pid": p["pid"],
+        "role": p["ruolo"],
+        "mantra_role": roles_text(p),
+        "role_display": (
+            roles_text(p) if engine.cfg.get("game_mode") == "mantra" else p["ruolo"]
+        ),
+        "name": p["nome"],
+        "club": p["squadra"],
+        "tier": p["fascia"],
+        "status": p["status"],
+        "slot": p["slot"],
+        "pfc": p["base"],
+        "pfc_range": p["pfc_range"],
+        "pma": round(p["pma"], 1),
+        "pma_range": p["pma_range"],
+        "pfc_vs_pma": round(p["dpfcpma"], 1),
+        "starter_pct": p["tit"],
+        "tix": p["tix"],
+        "expected_fm": p["expfm"],
+        "fix": p["fix"],
+        "daily_contribution": p["fix_contrib"],
+        "scarcity": round(scarcity, 2),
+        "alternative_value": engine._alt_value(p),
+        "suggested_price": suggested,
+        "unsold_count": engine.state["unsold"].get(key, 0),
+    }
+
+
+def svincolati_page(
+    ruolo: str = "",
+    q: str = "",
+    *,
+    sort_by: str = "pfc",
+    direction: str = "desc",
+    offset: int = 0,
+    limit: int | None = None,
+) -> tuple[list[dict[str, Any]], int]:
+    keys = _svincolati_keys(ruolo, q)
+    total = len(keys)
+    raw_sort = sort_by in _MARKET_RAW_SORT
+    if raw_sort:
+        keys = _sort_player_keys(keys, sort_by, direction)
+        page_keys = keys[offset : offset + limit if limit is not None else None]
+        rows = [_svincolato_row(key, engine.inflation()) for key in page_keys]
+    else:
+        rows = [_svincolato_row(key, engine.inflation()) for key in keys]
+        rows.sort(key=lambda row: norm(row["name"]))
+        rows.sort(key=lambda row: row[sort_by], reverse=direction == "desc")
+        rows = rows[offset : offset + limit if limit is not None else None]
+    return rows, total
+
+
+def svincolati_rows(ruolo: str = "", q: str = "", team: str | None = None):
+    """Backward-compatible unpaginated market rows used by exports/tests."""
+    del (
+        team
+    )  # Market prices are league-wide; team-specific max-bid is not displayed here.
+    rows, _total = svincolati_page(ruolo, q)
     return rows
 
 
 def _valid_role(ruolo: str):
-    role = ruolo.strip().upper()
-    if role and role not in ROLE_ORDER:
-        return None
-    return role
+    raw = ruolo.strip()
+    if not raw:
+        return ""
+    if engine.cfg.get("game_mode") == "mantra":
+        parsed = parse_roles(raw)
+        return (
+            parsed[0] if len(parsed) == 1 and parsed[0] in MANTRA_ROLE_ORDER else None
+        )
+    role = raw.upper()
+    return role if role in ROLE_ORDER else None
 
 
 @app.get("/api/svincolati")
-def api_svincolati(ruolo: str = "", q: str = "", team: str | None = None):
+def api_svincolati(
+    ruolo: str = "",
+    q: str = "",
+    team: str | None = None,
+    sort_by: str = "pfc",
+    direction: str = "desc",
+    offset: int = 0,
+    limit: int = 0,
+):
+    del team  # kept for API compatibility; market prices are league-wide
     role = _valid_role(ruolo)
     if role is None:
         return JSONResponse(
-            {"error": "ruolo non valido (P, D, C, A o vuoto)"}, status_code=400
+            {"error": "ruolo non valido per la modalità corrente"}, status_code=400
         )
-    rows = svincolati_rows(role, q, team)
-    return {"rows": rows, "count": len(rows), "role": role, "query": q.strip()}
+    if sort_by not in MARKET_SORT_FIELDS:
+        return JSONResponse(
+            {"error": "ordinamento mercato non valido"}, status_code=400
+        )
+    if direction not in ("asc", "desc"):
+        return JSONResponse(
+            {"error": "direction deve essere asc oppure desc"}, status_code=400
+        )
+    if (
+        type(offset) is not int
+        or offset < 0
+        or type(limit) is not int
+        or not 0 <= limit <= 200
+    ):
+        return JSONResponse(
+            {"error": "offset/limit non validi (limit massimo 200)"}, status_code=400
+        )
+    rows, total = svincolati_page(
+        role,
+        q,
+        sort_by=sort_by,
+        direction=direction,
+        offset=offset,
+        limit=limit or None,
+    )
+    return {
+        "rows": rows,
+        "count": total,
+        "page_count": len(rows),
+        "role": role,
+        "query": q.strip(),
+        "sort_by": sort_by,
+        "direction": direction,
+        "offset": offset,
+        "limit": limit or None,
+    }
 
 
 @app.get("/api/export/svincolati")
@@ -1420,13 +1676,13 @@ def export_svincolati(ruolo: str = ""):
     role = _valid_role(ruolo)
     if role is None:
         return JSONResponse(
-            {"error": "ruolo non valido (P, D, C, A o vuoto)"}, status_code=400
+            {"error": "ruolo non valido per la modalità corrente"}, status_code=400
         )
     source = svincolati_rows(role)
     rows = [
         {
             "Pid": row["pid"],
-            "Ruolo": row["role"],
+            "Ruolo": row["role_display"],
             "Nome": row["name"],
             "Squadra": row["club"],
             "Fascia": row["tier"],
@@ -1482,20 +1738,36 @@ def export_svincolati(ruolo: str = ""):
 
 def rose_rows(team: str = "", ruolo: str = ""):
     rows = []
+    is_mantra = engine.cfg.get("game_mode") == "mantra"
     for ev in engine.events:
         if ev["kind"] != "sold":
             continue
         if team and ev["team"] != team:
             continue
-        if ruolo and ev["ruolo"] != ruolo:
-            continue
         p = engine.players.get(ev.get("pid"))
+        if ruolo:
+            if is_mantra:
+                candidates = (
+                    player_roles(p)
+                    if p is not None
+                    else parse_roles(ev.get("ruolo_mantra"))
+                )
+                if ruolo not in candidates:
+                    continue
+            elif ev["ruolo"] != ruolo:
+                continue
         pma = p["pma"] if p else None
         rows.append(
             {
                 "pid": ev.get("pid"),
                 "team": ev["team"],
                 "role": ev["ruolo"],
+                "mantra_role": roles_text(p) if p else "",
+                "role_display": (
+                    roles_text(p)
+                    if p and engine.cfg.get("game_mode") == "mantra"
+                    else ev["ruolo"]
+                ),
                 "player": ev["nome"],
                 "price": ev["price"],
                 "pfc": ev["base"],
@@ -1507,8 +1779,18 @@ def rose_rows(team: str = "", ruolo: str = ""):
                 "purchase_number": ev["i"] + 1,
             }
         )
-    role_index = {role: i for i, role in enumerate(ROLE_ORDER)}
-    rows.sort(key=lambda row: (row["team"], role_index[row["role"]], -row["price"]))
+    role_order = MANTRA_ROLE_ORDER if is_mantra else ROLE_ORDER
+    role_index = {role: i for i, role in enumerate(role_order)}
+
+    def _rose_role_key(row):
+        if is_mantra:
+            first = (
+                player_roles({"ruolo_mantra": row["mantra_role"]}) or (row["role"],)
+            )[0]
+            return role_index.get(first, len(role_index))
+        return role_index.get(row["role"], len(role_index))
+
+    rows.sort(key=lambda row: (row["team"], _rose_role_key(row), -row["price"]))
     return rows
 
 
@@ -1526,8 +1808,16 @@ def rose_summaries():
                 "spent": sum(row["price"] for row in purchases),
                 "remaining_budget": engine.state["money"][team],
                 "purchases": len(purchases),
-                "filled_slots": filled,
-                "total_slots": dict(engine.cfg["slots"]),
+                "filled_slots": (
+                    {"ROSA": len(purchases)}
+                    if engine.cfg.get("game_mode") == "mantra"
+                    else filled
+                ),
+                "total_slots": (
+                    {"ROSA": engine.cfg["roster_size"]}
+                    if engine.cfg.get("game_mode") == "mantra"
+                    else dict(engine.cfg["slots"])
+                ),
             }
         )
     other = [row for row in sold if row["team"] == "ALTRO"]
@@ -1550,7 +1840,7 @@ def api_rose(team: str = "", ruolo: str = ""):
     role = _valid_role(ruolo)
     if role is None:
         return JSONResponse(
-            {"error": "ruolo non valido (P, D, C, A o vuoto)"}, status_code=400
+            {"error": "ruolo non valido per la modalità corrente"}, status_code=400
         )
     valid_teams = [*engine.cfg["team_names"], "ALTRO"]
     if team and team not in valid_teams:
@@ -1639,7 +1929,7 @@ def export_rose():
         {
             "Pid": row["pid"],
             "Squadra": row["team"],
-            "Ruolo": row["role"],
+            "Ruolo": row["role_display"],
             "Giocatore": row["player"],
             "Prezzo": row["price"],
             "PFC": row["pfc"],

@@ -1,26 +1,27 @@
 {
   "season": "2026-27",
-  "source_file": "Listone_Fantaculo_2026_09_01.xlsx",
-  "imported_at": "2026-09-01T08:40:45.558672+00:00",
-  "n_players": 524,
+  "source_file": "Listone_Fantaculo_2026_09_04 (1).xlsx",
+  "imported_at": "2026-09-04T18:57:27.807246+00:00",
+  "n_players": 533,
   "n_by_role": {
-    "P": 63,
-    "D": 187,
-    "C": 186,
-    "A": 88
+    "P": 65,
+    "D": 189,
+    "C": 192,
+    "A": 87
   },
   "total_pfc_by_role": {
-    "P": 945.8,
-    "D": 1803.2,
-    "C": 2944.9,
-    "A": 4685.4
+    "P": 487.6,
+    "D": 891.3,
+    "C": 1472.1,
+    "A": 2343.2
   },
-  "total_pfc": 10379.3,
+  "total_pfc": 5194.2,
   "columns": [
     "pid",
     "nome",
     "squadra",
     "ruolo",
+    "ruolo_mantra",
     "pfc",
     "pma",
     "pfc_range",
@@ -46,8 +47,7 @@
   "pid_version": "1",
   "ok": true,
   "warnings": [
-    "riga 523 (BALERDI, D): pma non positivo o non valido (trovato 0), usato il pfc come stima",
-    "riga 524 (THEATE, D): pma non positivo o non valido (trovato 0), usato il pfc come stima",
-    "riga 525 (DEMBELÈ A., D): pma non positivo o non valido (trovato 0), usato il pfc come stima"
+    "riga 533 (RODRIGUEZ R., D): pma non positivo o non valido (trovato 0), usato il pfc come stima",
+    "riga 534 (EHIZIBUE, D): pma non positivo o non valido (trovato 0), usato il pfc come stima"
   ]
 }

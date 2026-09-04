@@ -62,6 +62,15 @@ from league_config import (
     normalize,
     validate,
 )
+from mantra import (  # pyright: ignore[reportMissingImports]
+    compatible_positions,
+    has_explicit_roles,
+    player_roles,
+    roles_text,
+    roster_players,
+    roster_spots_left,
+    same_job,
+)
 from valuation import (
     max_bid_breakdown,
     scarcity_breakdown,
@@ -132,6 +141,25 @@ def _opt_float_none(r, key, ctx):
         return None
 
 
+def _load_mantra_sidecar(path):
+    """Ruoli ufficiali opzionali da ``mantra_roles.csv`` accanto al listone.
+
+    Il join usa il nome normalizzato, non la squadra: i ruoli sopravvivono ai
+    trasferimenti e il PID resta indipendente dagli aggiornamenti Mantra.
+    """
+    sidecar = os.path.join(os.path.dirname(os.path.abspath(path)), "mantra_roles.csv")
+    try:
+        with open(sidecar, newline="", encoding="utf-8-sig") as f:
+            rows = list(csv.DictReader(f))
+    except FileNotFoundError:
+        return {}
+    return {
+        norm(row.get("nome") or ""): row.get("ruolo_mantra") or ""
+        for row in rows
+        if norm(row.get("nome") or "") and str(row.get("ruolo_mantra") or "").strip()
+    }
+
+
 def load_players(path):
     """Legge il CSV canonico del listone in liste di dict giocatore (schema WP3).
 
@@ -146,6 +174,7 @@ def load_players(path):
             rows = list(csv.DictReader(f))
     except FileNotFoundError as e:
         raise FileNotFoundError(f"CSV del listone non trovato: {path}") from e
+    mantra_sidecar = _load_mantra_sidecar(path)
     players = []
     for i, r in enumerate(rows):
         role = (r.get("ruolo") or "").strip().upper()
@@ -186,12 +215,22 @@ def load_players(path):
         else:
             pid = compute_pid(nome, role)
 
+        mantra_raw = (
+            r.get("ruolo_mantra")
+            or r.get("roleMantra")
+            or mantra_sidecar.get(norm(nome))
+            or ""
+        )
+        mantra_source = {"ruolo": role, "ruolo_mantra": mantra_raw}
         players.append(
             {
                 "pid": pid,
                 "nome": nome,
                 "squadra": r.get("squadra", "") or "",
                 "ruolo": role,
+                "ruolo_mantra": roles_text(mantra_source),
+                "ruoli_mantra": list(player_roles(mantra_source)),
+                "mantra_roles_explicit": bool(str(mantra_raw).strip()),
                 "pfc": pfc,
                 "pma": pma,
                 "pfc_range": pfc_range.strip(),
@@ -276,6 +315,10 @@ class Auction:
             d = copy.deepcopy(p)
             pid = d.get("pid") or compute_pid(d["nome"], d["ruolo"])
             d["pid"] = pid
+            explicit_roles = has_explicit_roles(d)
+            d["ruoli_mantra"] = list(player_roles(d))
+            d["ruolo_mantra"] = roles_text(d)
+            d["mantra_roles_explicit"] = explicit_roles
             prev = self.players.get(pid)
             if prev is not None:
                 raise ConfigError(
@@ -286,6 +329,16 @@ class Auction:
             self.players[pid] = d
         for p in self.players.values():
             p["base"] = max(1, round(p["pfc"]))
+        self.classic_role_index: dict[str, set[str]] = defaultdict(set)
+        self.mantra_role_index: dict[str, set[str]] = defaultdict(set)
+        self.player_search_index: dict[str, str] = {}
+        for pid, player in self.players.items():
+            self.player_search_index[pid] = (
+                f"{norm(player['nome'])} {norm(player.get('squadra') or '')}"
+            )
+            self.classic_role_index[player["ruolo"]].add(pid)
+            for role in player_roles(player):
+                self.mantra_role_index[role].add(pid)
         self._init_state()
 
     def _init_state(self):
@@ -311,6 +364,11 @@ class Auction:
         }
         self.undo_stack = []
         self.demand0 = {role: cfg["teams"] * cfg["slots"][role] for role in ROLE_ORDER}
+        self.mantra_demand0 = {
+            k: cfg["teams"]
+            * max(1, len(compatible_positions(p, cfg["mantra_formation"])))
+            for k, p in self.players.items()
+        }
         self.alt0 = {k: self._comparable_count(p) for k, p in self.players.items()}
         self.alt_value0 = {
             k: self._alt_value(p, pool=set(self.players))
@@ -356,12 +414,26 @@ class Auction:
             self.undo_stack.pop(0)
 
     # ------------------------------------------------------------- primitives
+    def player_ids_for_role(self, role: str) -> set[str]:
+        """Immutable-at-runtime role lookup intersected with the live pool by callers."""
+        index = (
+            self.mantra_role_index
+            if self.cfg.get("game_mode") == "mantra"
+            else self.classic_role_index
+        )
+        return index.get(role, set())
+
+    def _same_job(self, candidate, other):
+        if self.cfg.get("game_mode") == "mantra":
+            return same_job(candidate, other, self.cfg["mantra_formation"])
+        return other["ruolo"] == candidate["ruolo"]
+
     def _comparable_count(self, p):
-        """Alternative che fanno lo stesso lavoro: slot consigliato <= al suo."""
+        """Alternative di qualità pari o migliore che possono coprire lo stesso lavoro."""
         return sum(
             1
             for k in self.state["pool"]
-            if self.players[k]["ruolo"] == p["ruolo"]
+            if self._same_job(p, self.players[k])
             and self.players[k]["slot"] <= p["slot"]
         )
 
@@ -373,9 +445,19 @@ class Auction:
             self.players[k]["base"]
             for k in pool
             if k != key
-            and self.players[k]["ruolo"] == p["ruolo"]
+            and self._same_job(p, self.players[k])
             and self.players[k]["slot"] <= p["slot"]
         )
+
+    def _player_demand(self, p):
+        if self.cfg.get("game_mode") != "mantra":
+            return self._demand(p["ruolo"])
+        sold_count = sum(
+            1
+            for pid, _price, _team, _role in self.state["sold"]
+            if pid in self.players and self._same_job(p, self.players[pid])
+        )
+        return max(0, self.mantra_demand0[p["pid"]] - sold_count)
 
     def _demand(self, role):
         """Slot ancora aperti nel ruolo, mai negativi: le vendite ALTRO possono
@@ -428,10 +510,15 @@ class Auction:
           di piu' il giocatore costoso (l'ultimo pezzo di qualita' vale di piu').
         """
         cfg = self.cfg
-        demand = self._demand(p["ruolo"])
+        demand = self._player_demand(p)
         alt = max(self._comparable_count(p), 1)
         alt0 = max(self.alt0[p["pid"]], 1)
-        demand0 = max(self.demand0[p["ruolo"]], 1)  # slot iniziali del ruolo (mai 0)
+        demand0 = max(
+            self.mantra_demand0[p["pid"]]
+            if cfg.get("game_mode") == "mantra"
+            else self.demand0[p["ruolo"]],
+            1,
+        )
         s_slot = ((demand / alt) / (demand0 / alt0)) ** cfg["scarcity_beta"]
         s_slot = max(cfg["scarcity_min"], min(cfg["scarcity_max"], s_slot))
 
@@ -536,7 +623,14 @@ class Auction:
         money = self.state["money"].get(team)
         tracked = money is not None
         role = p["ruolo"]
-        covered = slots[role] <= 0
+        is_mantra = cfg.get("game_mode") == "mantra"
+        spots_left = roster_spots_left(self, team) if is_mantra else sum(slots.values())
+        covered = spots_left <= 0 if is_mantra else slots[role] <= 0
+        role_slots = (
+            len(compatible_positions(p, cfg["mantra_formation"]))
+            if is_mantra
+            else slots[role]
+        )
         return {
             "base": base,
             "infl": mkt["infl"],
@@ -548,10 +642,12 @@ class Auction:
             "tracked": tracked,
             "alt": self._comparable_count(p),
             "alt_value": self._alt_value(p),
-            "demand": self._demand(role),
+            "demand": self._player_demand(p),
             "money": money,
-            "slots_role": slots[role],
-            "slots_left": sum(slots.values()),
+            "slots_role": role_slots,
+            "slots_left": spots_left,
+            "mantra_roles": list(player_roles(p)) if is_mantra else [],
+            "mantra_formation": cfg.get("mantra_formation") if is_mantra else None,
             "scarcity_team": bd["final"],
             "scarcity_breakdown": bd,
             "maxbid_breakdown": mb,
@@ -600,7 +696,34 @@ class Auction:
                     f"inferiori al prezzo di {price} cr: il totale della lega "
                     f"non puo' andare negativo."
                 )
-            if self.state["slots"][team][p["ruolo"]] <= 0:
+            if self.cfg.get("game_mode") == "mantra":
+                roster = roster_players(self, team)
+                spots = roster_spots_left(self, team)
+                if spots <= 0:
+                    raise SlotUnavailableError(
+                        f"{team} ha completato la rosa Mantra da {self.cfg['roster_size']} giocatori."
+                    )
+                roles = player_roles(p)
+                if not roles or not has_explicit_roles(p):
+                    raise SlotUnavailableError(
+                        f"{p['nome']} non ha ruoli Mantra ufficiali nel listone."
+                    )
+                keepers = sum(1 for q in roster if "Por" in player_roles(q))
+                is_keeper = "Por" in roles
+                if is_keeper and keepers >= 15:
+                    raise SlotUnavailableError(
+                        f"{team} ha gia' il massimo di 15 portieri Mantra."
+                    )
+                if not is_keeper and len(roster) - keepers >= 75:
+                    raise SlotUnavailableError(
+                        f"{team} ha gia' il massimo di 75 giocatori di movimento Mantra."
+                    )
+                keepers_after = keepers + (1 if is_keeper else 0)
+                if spots - 1 < max(0, 2 - keepers_after):
+                    raise SlotUnavailableError(
+                        f"acquisto impossibile: {team} deve conservare posto per almeno 2 portieri Mantra."
+                    )
+            elif self.state["slots"][team][p["ruolo"]] <= 0:
                 raise SlotUnavailableError(
                     f"{team} ha esaurito gli slot di {ROLE_SING[p['ruolo']]}: "
                     f"slot rimasti {self.state['slots'][team][p['ruolo']]} "
@@ -637,7 +760,8 @@ class Auction:
         self.state["money_league"] -= price
         if team != "ALTRO":  # squadra tracciata: aggiorna budget e slot (mai negativi)
             self.state["money"][team] -= price
-            self.state["slots"][team][p["ruolo"]] -= 1
+            if self.cfg.get("game_mode") != "mantra":
+                self.state["slots"][team][p["ruolo"]] -= 1
         else:  # acquirente non tracciato: contabilizza solo il denaro uscito dalla lega
             self.state["spent_unknown"] += price
         self.state["sold"].append((key, price, team, p["ruolo"]))
@@ -821,11 +945,40 @@ class Auction:
                         and e[1] >= 1
                     )
                 )
-                expected = cfg["slots"][role] - sold_for
+                expected = (
+                    cfg["slots"][role]
+                    if cfg.get("game_mode") == "mantra"
+                    else cfg["slots"][role] - sold_for
+                )
                 if n != expected:
+                    detail = (
+                        "(gli slot P/D/C/A non si consumano in Mantra)"
+                        if cfg.get("game_mode") == "mantra"
+                        else f"- {sold_for} vendite non-ALTRO"
+                    )
                     problems.append(
                         f"slots: {team}/{role} {n} != iniziali "
-                        f"{cfg['slots'][role]} - {sold_for} vendite non-ALTRO"
+                        f"{cfg['slots'][role]} {detail}"
+                    )
+            if cfg.get("game_mode") == "mantra":
+                roster = [
+                    self.players[e[0]]
+                    for e in sold
+                    if isinstance(e, (tuple, list))
+                    and len(e) == 4
+                    and e[2] == team
+                    and e[0] in self.players
+                ]
+                keepers = sum(1 for p in roster if "Por" in player_roles(p))
+                if len(roster) > cfg["roster_size"]:
+                    problems.append(
+                        f"rosa Mantra {team}: {len(roster)} > {cfg['roster_size']} giocatori"
+                    )
+                if keepers > 15:
+                    problems.append(f"rosa Mantra {team}: {keepers} > 15 portieri")
+                if len(roster) - keepers > 75:
+                    problems.append(
+                        f"rosa Mantra {team}: {len(roster) - keepers} > 75 giocatori di movimento"
                     )
 
         # ---- 3. unsold solo nel pool ---------------------------------------
@@ -1044,7 +1197,7 @@ HELP = """Comandi:
   venduto <nome> <prezzo> [squadra]    registra l'acquisto (alias: sold)
   invenduto <nome>                     registra il rilancio mancato (alias: unsold)
   stato                                inflazione, scarsità/qualità residua per ruolo, budget
-  config squadre=8 budget=500 slotp=3 slotd=8 slotc=8 slota=6 formazp=1 formazd=4 formazc=4 formaza=2 io=IO
+  config sistema=mantra rosa=28 modulo=4-3-3 squadre=8 budget=500 io=IO
                                        riconfigura e azzera l'asta
   undo                                 annulla l'ultima operazione
   aiuto                                questo help      esci  per uscire"""
@@ -1054,6 +1207,9 @@ CONFIG_KEYS = {
     # (teams, budget, slots, formation, tit_cov_threshold, io)
     "squadre": "teams",
     "budget": "budget",
+    "sistema": "game_mode",
+    "rosa": "roster_size",
+    "modulo": "mantra_formation",
     "slotp": ("slots", "P"),
     "slotd": ("slots", "D"),
     "slotc": ("slots", "C"),
@@ -1081,8 +1237,8 @@ def config_overrides(auction, toks):
             print(f"Chiave sconosciuta: {k}")
             return None
         target = CONFIG_KEYS[k]
-        if target == "io":
-            val = v
+        if target in ("io", "game_mode", "mantra_formation"):
+            val = v.strip()
         else:
             try:
                 val = int(v)

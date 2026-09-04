@@ -68,6 +68,11 @@ DISGIUNTI senza indice unico:
 from math import isfinite
 
 from league_config import ROLE_ORDER
+from mantra import (  # pyright: ignore[reportMissingImports]
+    player_roles,
+    roster_spots_left,
+    tactical_impact,
+)
 
 # ---- tuning: chiavi opzionali nella cfg (normalize() le preserva) ----------
 TEAM_BETA = 0.6  # esponente della componente competizione
@@ -116,6 +121,10 @@ def reserve_floor(auction, team):
     slots = auction.state["slots"].get(team)
     per_role = dict.fromkeys(ROLE_ORDER, 0)
     total = 0
+    if auction.cfg.get("game_mode") == "mantra":
+        remaining = roster_spots_left(auction, team)
+        total = round(remaining * _role_floor(auction.cfg, "ROSA"))
+        return {"per_role": {"ROSA": total}, "total": total}
     if slots is not None:
         for role in ROLE_ORDER:
             n = slots.get(role, 0)
@@ -164,7 +173,10 @@ def competing_teams(auction, role, player=None):
     out = []
     for team in auction.state["money"]:
         slots = auction.state["slots"].get(team)
-        if slots is None or slots.get(role, 0) <= 0:
+        if auction.cfg.get("game_mode") == "mantra":
+            if roster_spots_left(auction, team) <= 0:
+                continue
+        elif slots is None or slots.get(role, 0) <= 0:
             continue
         money = auction.state["money"][team]
         reserve = reserve_floor(auction, team)["total"]
@@ -190,7 +202,6 @@ def _quality_comparables(auction, p, keys) -> "tuple[float, int]":
     Escluso il giocatore stesso. ``keys`` = pool attuale o tutti i giocatori
     (baseline iniziale).
     """
-    role = p["ruolo"]
     pid = p["pid"]
     tol = _tuning(auction.cfg, "scarcity_qual_tol", QUAL_TOL)
     base_tol = _tuning(auction.cfg, "scarcity_qual_base_tol", QUAL_BASE_TOL)
@@ -204,7 +215,7 @@ def _quality_comparables(auction, p, keys) -> "tuple[float, int]":
         if key == pid:
             continue
         q = auction.players[key]
-        if q["ruolo"] != role or q["slot"] > p["slot"]:
+        if not auction._same_job(p, q) or q["slot"] > p["slot"]:
             continue
         q_base = q.get("base") or 0.0
         if q_base < lo or q_base > hi:
@@ -241,14 +252,23 @@ def scarcity_breakdown(auction, p, team=None):
         team = cfg["io"]
     slots_team = auction.state["slots"].get(team, dict(cfg["slots"]))
     tracked = team in auction.state["money"]
-    covered = tracked and slots_team.get(role, 0) <= 0
+    covered = tracked and (
+        roster_spots_left(auction, team) <= 0
+        if cfg.get("game_mode") == "mantra"
+        else slots_team.get(role, 0) <= 0
+    )
 
     # ---- league: scarsità lega attuale (invariata, riusa Auction.scarcity) ----
     league_factor = auction.scarcity(p)
 
     # ---- quant: domanda slot effettiva / offerta comparabile vs baseline ----
-    demand = auction._demand(role)
-    demand0 = max(auction.demand0[role], 1)
+    demand = auction._player_demand(p)
+    demand0 = max(
+        auction.mantra_demand0[p["pid"]]
+        if cfg.get("game_mode") == "mantra"
+        else auction.demand0[role],
+        1,
+    )
     alt = max(auction._comparable_count(p), 1)
     alt0 = max(auction.alt0.get(p["pid"], 1), 1)
     quant_ratio = (demand / alt) / (demand0 / alt0)
@@ -476,6 +496,12 @@ def roster_marginal_gain(auction, p, team) -> float:
     """
     if team not in auction.state["money"]:
         return 0.0
+    if auction.cfg.get("game_mode") == "mantra":
+        return _bounded(
+            tactical_impact(auction, p, team, fantasy_utility)["marginal_gain"],
+            0.0,
+            1.0,
+        )
     role = p["ruolo"]
     formation = auction.cfg["formation"][role]
     filled = _purchased_in_role(auction, team, role)
@@ -497,7 +523,10 @@ def best_alternative(auction, p, team):
     dall'ordine di iterazione dei set. Ritorna il dict giocatore o None."""
     role = p["ruolo"]
     slots = auction.state["slots"].get(team)
-    if slots is None or slots.get(role, 0) <= 0:
+    if auction.cfg.get("game_mode") == "mantra":
+        if roster_spots_left(auction, team) <= 0:
+            return None
+    elif slots is None or slots.get(role, 0) <= 0:
         return None
     best = None
     best_key = (-1.0, -1.0, "")
@@ -505,7 +534,7 @@ def best_alternative(auction, p, team):
         if key == p["pid"]:
             continue
         q = auction.players[key]
-        if q["ruolo"] != role:
+        if not auction._same_job(p, q):
             continue
         q_key = (fantasy_utility(q), q.get("base") or 0.0, key)
         if q_key > best_key:
@@ -527,6 +556,10 @@ def reserve_after_purchase(auction, p, team):
     slots = auction.state["slots"].get(team)
     per_role = dict.fromkeys(ROLE_ORDER, 0)
     total = 0
+    if auction.cfg.get("game_mode") == "mantra":
+        remaining = max(0, roster_spots_left(auction, team) - 1)
+        total = round(remaining * _role_floor(auction.cfg, "ROSA"))
+        return {"per_role": {"ROSA": total}, "total": total}
     if slots is not None:
         for role in ROLE_ORDER:
             n = slots.get(role, 0)
@@ -580,6 +613,19 @@ def role_budget_left(auction, team, role):
     if team not in auction.state["money"]:
         return None
     cfg = auction.cfg
+    if cfg.get("game_mode") == "mantra":
+        reserve = reserve_floor(auction, team)["total"]
+        left = max(0, auction.state["money"][team] - reserve)
+        return {
+            "role": "/".join(player_roles({"ruolo": role})),
+            "team": team,
+            "source": "mantra_flexible_roster",
+            "weights": {},
+            "target": cfg["budget"],
+            "spent": cfg["budget"] - auction.state["money"][team],
+            "released": 0,
+            "left": left,
+        }
     slots = auction.state["slots"][team]
     weights = _role_weights(auction)
     budget = cfg["budget"]
@@ -651,14 +697,23 @@ def opportunity_cap(auction, p, team, alt=None):
     alt_util = fantasy_utility(alt)
     ratio = _bounded(cand_util / max(alt_util, 1e-9), RATIO_MIN, RATIO_MAX)
     role = p["ruolo"]
-    formation = auction.cfg["formation"][role]
-    filled = _purchased_in_role(auction, team, role)
-    holes_ratio = _bounded(max(0, formation - filled) / max(formation, 1), 0.0, 1.0)
-    n_alt = sum(
-        1
-        for k in auction.state["pool"]
-        if k != p["pid"] and auction.players[k]["ruolo"] == role
-    )
+    if auction.cfg.get("game_mode") == "mantra":
+        impact = tactical_impact(auction, p, team, fantasy_utility)
+        holes_ratio = _bounded(len(impact["holes_before"]) / 11, 0.0, 1.0)
+        n_alt = sum(
+            1
+            for k in auction.state["pool"]
+            if k != p["pid"] and auction._same_job(p, auction.players[k])
+        )
+    else:
+        formation = auction.cfg["formation"][role]
+        filled = _purchased_in_role(auction, team, role)
+        holes_ratio = _bounded(max(0, formation - filled) / max(formation, 1), 0.0, 1.0)
+        n_alt = sum(
+            1
+            for k in auction.state["pool"]
+            if k != p["pid"] and auction.players[k]["ruolo"] == role
+        )
     st = scarcity_breakdown(auction, p, team)["final"]
     urgency = _bounded(
         1.0
@@ -714,7 +769,11 @@ def max_bid_breakdown(auction, p, team=None):
     tracked = team in auction.state["money"]
     slots = auction.state["slots"].get(team, dict(cfg["slots"]))
     role = p["ruolo"]
-    covered = tracked and slots.get(role, 0) <= 0
+    covered = tracked and (
+        roster_spots_left(auction, team) <= 0
+        if cfg.get("game_mode") == "mantra"
+        else slots.get(role, 0) <= 0
+    )
 
     util = fantasy_utility(p)
     risk = STATUS_RISK.get(str(p.get("status") or "").upper(), STATUS_RISK_DEFAULT)
@@ -759,7 +818,13 @@ def max_bid_breakdown(auction, p, team=None):
 
     market_cap = max(0, round(suggested * cfg["aggression"]))
     reserve_cap = max(0, auction.state["money"][team] - reserve["total"])
-    role_cap = role_info["left"] if role_info is not None else 0
+    role_cap = (
+        reserve_cap
+        if cfg.get("game_mode") == "mantra"
+        else role_info["left"]
+        if role_info is not None
+        else 0
+    )
     caps = {
         "market_cap": market_cap,
         "reserve_cap": reserve_cap,
@@ -959,7 +1024,11 @@ def team_value_breakdown(auction, p, team=None) -> dict:
     tracked = team in auction.state["money"]
     slots = auction.state["slots"].get(team, dict(cfg["slots"]))
     role = p["ruolo"]
-    covered = tracked and slots.get(role, 0) <= 0
+    covered = tracked and (
+        roster_spots_left(auction, team) <= 0
+        if cfg.get("game_mode") == "mantra"
+        else slots.get(role, 0) <= 0
+    )
 
     expected = live_price(auction, p)
     util = fantasy_utility(p)
@@ -972,18 +1041,29 @@ def team_value_breakdown(auction, p, team=None) -> dict:
         ratio = _bounded(util / max(alt_util, 1e-9), VALUE_RATIO_MIN, VALUE_RATIO_MAX)
     gain = roster_marginal_gain(auction, p, team)
 
-    formation = cfg["formation"][role]
-    filled = _purchased_in_role(auction, team, role)
-    holes_ratio = _bounded(max(0, formation - filled) / max(formation, 1), 0.0, 1.0)
-    n_alt = sum(
-        1
-        for k in auction.state["pool"]
-        if k != p["pid"] and auction.players[k]["ruolo"] == role
-    )
+    mantra = None
+    if cfg.get("game_mode") == "mantra":
+        mantra = tactical_impact(auction, p, team, fantasy_utility)
+        holes_ratio = _bounded(len(mantra["holes_before"]) / 11, 0.0, 1.0)
+        n_alt = sum(
+            1
+            for k in auction.state["pool"]
+            if k != p["pid"] and auction._same_job(p, auction.players[k])
+        )
+    else:
+        formation = cfg["formation"][role]
+        filled = _purchased_in_role(auction, team, role)
+        holes_ratio = _bounded(max(0, formation - filled) / max(formation, 1), 0.0, 1.0)
+        n_alt = sum(
+            1
+            for k in auction.state["pool"]
+            if k != p["pid"] and auction.players[k]["ruolo"] == role
+        )
     need = _bounded(
         1.0 + 0.5 * holes_ratio - ALT_ABUNDANCE_STEP * n_alt, NEED_MIN, NEED_MAX
     )
     gain_need = _bounded(gain * need, GAIN_NEED_MIN, GAIN_NEED_MAX)
+    alt_utility = alt_util if isinstance(alt_util, (int, float)) else 0.0
 
     base = {
         "role": role,
@@ -1002,12 +1082,14 @@ def team_value_breakdown(auction, p, team=None) -> dict:
             {
                 "pid": alt["pid"],
                 "nome": alt["nome"],
-                "utility": round(alt_util, 4),  # type: ignore[arg-type]
+                "utility": round(alt_utility, 4),
             }
             if alt is not None
             else None
         ),
     }
+    if mantra is not None:
+        base["mantra"] = mantra
     if not tracked:
         return {**base, "team_value": None, "reason": "untracked"}
     if covered:

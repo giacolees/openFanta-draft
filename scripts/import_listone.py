@@ -62,6 +62,7 @@ from typing import Any
 
 import openpyxl
 from league_config import ROLE_ORDER, norm
+from mantra import parse_roles  # pyright: ignore[reportMissingImports]
 from openpyxl.worksheet.worksheet import Worksheet
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -138,6 +139,7 @@ CANON = [
     "nome",
     "squadra",
     "ruolo",
+    "ruolo_mantra",
     "pfc",
     "pma",
     "pfc_range",
@@ -165,6 +167,7 @@ COLUMN_MAP = {
     "name": "nome",
     "team": "squadra",
     "role": "ruolo",
+    "roleMantra": "ruolo_mantra",
     "pfc": "pfc",
     "pma": "pma",
     "dpfcpma": "dpfcpma",
@@ -241,7 +244,7 @@ def percentile_ranks(rows, key):
         s = sorted(values)
         n = len(s)
         if n < 2:
-            ranks[role] = {v: 50.0 for v in set(values)}
+            ranks[role] = dict.fromkeys(set(values), 50.0)
             continue
         out = {}
         for v in set(values):
@@ -293,6 +296,7 @@ def import_listone(path, out_path=DEFAULT_OUT, meta_path=META_PATH):
         p["nome"] = str(p["nome"]).strip().upper()
         p["squadra"] = str(p.get("squadra") or "").strip()
         p["ruolo"] = str(p.get("ruolo") or "").strip().upper()
+        p["ruolo_mantra"] = ";".join(parse_roles(p.get("ruolo_mantra")))
         ctx = f"riga {linenum} ({p['nome']}, {p['ruolo']})"
 
         if p["ruolo"] not in ROLE_ORDER:

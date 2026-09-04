@@ -19,6 +19,7 @@ wheels/
 data/*
 !data/listone.csv
 !data/listone_meta.json
+!data/mantra_roles.csv
 
 # Cache di strumenti
 .ruff_cache/

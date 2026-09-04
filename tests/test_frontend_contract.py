@@ -111,6 +111,8 @@ def test_frontend_has_five_accessible_workspaces_and_data_views():
         'role="tablist"',
         'role="tabpanel"',
         'id="market-search"',
+        'id="market-sort"',
+        'id="market-direction"',
         'id="market-table"',
         'id="market-status"',
         'id="roster-team"',
@@ -131,11 +133,28 @@ def test_frontend_has_five_accessible_workspaces_and_data_views():
     assert "data.count === 1" in js
     assert '"font-size": 24' in js
     assert "loadMarket" in js and "loadRosters" in js
+    assert "marketPageSize = 30" in js
+    assert "new URLSearchParams" in js
+    for parameter in ("sort_by", "direction", "offset", "limit"):
+        assert parameter in js
     # State-changing actions must not leave hidden workspace data stale.
     assert 'if (activeView === "simulatore") await loadLatest();' in js
     assert '$("roster-team").value = "";' in js
     assert '$("roster-summary").replaceChildren();' in js
     assert '$("roster-body").replaceChildren();' in js
+
+
+def test_rose_summary_renders_dynamic_slots_and_mantra_roles():
+    js = script()
+    assert 'const rosterRoleSelect = $("roster-role")' in js
+    assert "Object.entries(item.filled_slots)" in js
+    assert "row.role_display || row.role" in js
+
+
+def test_recent_operations_list_has_readable_spacing():
+    text = source()
+    assert "#recent li {" in text
+    assert "gap: 8px" in text
 
 
 def test_frontend_allows_roster_purchase_deletion():
@@ -322,6 +341,14 @@ def test_frontend_persistence_chips_and_local_timestamp():
     assert "toLocaleString" in js
     assert "event_seq" in js
     assert "last_saved" in js
+
+
+def test_team_change_preserves_manually_edited_price():
+    js = script()
+    assert "preservePrice = null" in js
+    assert 'preservePrice: $("price").value' in js
+    assert '$("price").value = preservePrice' in js
+    assert "focusPrice: false" in js
 
 
 def test_frontend_script_passes_node_check():

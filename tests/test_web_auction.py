@@ -185,6 +185,37 @@ def test_api_svincolati_filtra_e_esclude_venduti():
     assert status_of(wa.api_svincolati(ruolo="X")) == 400
 
 
+def test_api_svincolati_ordina_e_pagina_prima_della_valutazione(monkeypatch):
+    players = [
+        make_player("LOW", pfc=10),
+        make_player("HIGH", pfc=50),
+        make_player("MID", pfc=30),
+    ]
+    eng = set_engine(players, teams=1, budget=100)
+
+    def forbidden_evaluate(*_args, **_kwargs):
+        raise AssertionError(
+            "la lista mercato non deve calcolare il breakdown completo"
+        )
+
+    monkeypatch.setattr(eng, "evaluate", forbidden_evaluate)
+    data = wa.api_svincolati(
+        ruolo="A", sort_by="pma", direction="desc", offset=1, limit=2
+    )
+    assert data["count"] == 3
+    assert data["page_count"] == 2
+    assert [row["name"] for row in data["rows"]] == ["MID", "LOW"]
+    assert data["sort_by"] == "pma" and data["direction"] == "desc"
+
+
+def test_api_svincolati_rifiuta_ordinamento_e_paginazione_invalidi():
+    set_engine(make_pool(a=3), teams=1, budget=100)
+    assert status_of(wa.api_svincolati(sort_by="unknown")) == 400
+    assert status_of(wa.api_svincolati(direction="sideways")) == 400
+    assert status_of(wa.api_svincolati(offset=-1)) == 400
+    assert status_of(wa.api_svincolati(limit=201)) == 400
+
+
 def test_api_rose_espone_acquisti_e_riepilogo_squadre():
     eng = set_engine(make_pool(a=4), teams=2, budget=100, io="IO")
     wa.api_sold(wa.SoldBody(key="A01", price=30, team="IO"))
